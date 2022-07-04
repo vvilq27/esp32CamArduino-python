@@ -18,6 +18,7 @@ while not newImg:
 while True:
 	newImg = False
 
+	# why bytearray?
 	imageBytesTab = bytearray()
 
 	# packet = packet.decode('utf-8')

@@ -4,15 +4,16 @@
 #include <RF24.h>
 
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
+#define DATA_BYTES 30
 
 #include "camera_pins.h"
 
 /*    pinout for SPI nrf24 connection
- *     io2 - 
- *     io14 -
- *     io15 - 
- *     io13 - 
- *     io12 -
+ *     io2 - CSN
+ *     io14 - SCK
+ *     io15 - CE
+ *     io13 - MOSI
+ *     io12 - MISO
  * 
  */
 
@@ -35,10 +36,11 @@ uint8_t dataPacket[32];
 char *data;
 uint32_t imgSize;
 uint8_t packetCount;
+uint8_t imgIdx;
 camera_fb_t *fb;
 
 void setup() {  
-  Serial.begin(500000);
+  Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
 
@@ -100,16 +102,16 @@ void setup() {
 #endif
 
 
-  if (!radio.begin(&SPI2, 15,2)) {
-    Serial.println(F("radio hardware is not responding!!"));
-    while (1) {} // hold in infinite loop
-  }
-  
-  radio.setAutoAck(true);
-  radio.setChannel(100);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.openWritingPipe(address);
+//  if (!radio.begin(&SPI2, 15,2)) {
+//    Serial.println(F("radio hardware is not responding!!"));
+//    while (1) {} // hold in infinite loop
+//  }
+//  
+//  radio.setAutoAck(true);
+//  radio.setChannel(100);
+//  radio.setDataRate(RF24_250KBPS);
+//  radio.setPALevel(RF24_PA_LOW);
+//  radio.openWritingPipe(address);
 
 
   fb = esp_camera_fb_get();
@@ -123,17 +125,20 @@ void setup() {
       
     Serial.print(*data++, HEX);
 
-    if(i%31 == 0)
+    if(i%DATA_BYTES == 0)
       Serial.println();
   }
 
   Serial.println();
   Serial.println(imgSize);
 
-//  esp_camera_fb_return(fb);
+  esp_camera_fb_return(fb);
+
+  imgIdx =0;
 } 
 
 void loop() {
+  long start = millis();
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
@@ -142,18 +147,17 @@ void loop() {
   
 //  sendPacketWithImgSize(imgSize);
   
-  // go thru data[] and pick every 31 bytes into packet
-  for(int packetCnt = 0; packetCnt < imgSize/31 + 1; packetCnt++){
+  // go thru data[] and pick every DATA_BYTES bytes into packet
+  for(int packetCnt = 0; packetCnt < imgSize/DATA_BYTES + 1; packetCnt++){
     
     //case for last packet, to not exceed data[] index
-    if(packetCnt == imgSize/31){
-      int remainingBytes = imgSize - packetCnt*31;
-//      Serial.print("remaining bytes: ");
-//      Serial.println(remainingBytes);
+    if(packetCnt == imgSize/DATA_BYTES){
+      int remainingBytes = imgSize - packetCnt*DATA_BYTES;
 
       zeroDataPacket();
-      
-      for(int j = 1; j < 32; j++){
+
+      //2 is offset from img index and packet index
+      for(int j = 2; j < 32; j++){
         if(j <= remainingBytes)
           dataPacket[j] = *data++;
         else
@@ -171,20 +175,22 @@ void loop() {
 
     } 
 
-    //not last packet, populate packet with all 31 bytes
+    //not last packet, populate packet with all DATA_BYTES bytes
     else {
-      for(int j = 1; j <32; j++)
-          dataPacket[j] = *data++;
+      for(int j = 2; j <32; j++){          
+        dataPacket[j] = *data++;
+      }
     }
    
-   dataPacket[0] = packetCnt;
+   dataPacket[1] = packetCnt;
+   dataPacket[0] = imgIdx;
 
 //print packet
    for( int i =0; i<32;i++){
-      if(dataPacket[i] <16)
-        Serial.print(0);
+//      if(dataPacket[i] <16)
+//        Serial.print(0);
         
-      Serial.print(dataPacket[i], HEX);
+      Serial.write(dataPacket[i]);
    }
    Serial.println();
 
@@ -193,12 +199,21 @@ void loop() {
    packetCount = packetCnt;
   }//end for loop, all packets sent
 
+  imgIdx++;
+
   Serial.print("total packets: ");
   Serial.println(packetCount);
 
-//  delay(10);
+  delay(100);
 
   esp_camera_fb_return(fb);
+
+//00 offset to match packet pattern
+  Serial.print("00pic in ");
+  Serial.println(millis()-start);
+
+  
+  
   /*
   // put your main code here, to run repeatedly:
 //  delay(1000);
