@@ -14,18 +14,8 @@
  *     io15 - CE
  *     io13 - MOSI
  *     io12 - MISO
- * 
  */
-
-//const char* ssid = "NETIASPOT-8CDD30";
-//const char* password = "6u3bs8892yii";
-
-//const char* ssid = "UPC1334144";
-//const char* password = "HXXBJETC";
-
-const char* ssid = "DESKTOP";
-const char* password = "a12345678";
-
+ 
 void startCameraServer();
 
 SPIClass SPI2(HSPI);
@@ -102,17 +92,16 @@ void setup() {
 #endif
 
 
-//  if (!radio.begin(&SPI2, 15,2)) {
-//    Serial.println(F("radio hardware is not responding!!"));
-//    while (1) {} // hold in infinite loop
-//  }
-//  
-//  radio.setAutoAck(true);
-//  radio.setChannel(100);
-//  radio.setDataRate(RF24_250KBPS);
-//  radio.setPALevel(RF24_PA_LOW);
-//  radio.openWritingPipe(address);
-
+  if (!radio.begin(&SPI2, 15,2)) {
+    Serial.println(F("radio hardware is not responding!!"));
+    while (1) {} // hold in infinite loop
+  }
+  
+  radio.setAutoAck(true);
+  radio.setChannel(100);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.openWritingPipe(address);
 
   fb = esp_camera_fb_get();
 
@@ -145,7 +134,7 @@ void loop() {
   imgSize = fb->len;
   packetCount = 0;
   
-//  sendPacketWithImgSize(imgSize);
+  sendPacketWithImgSize(imgSize);
   
   // go thru data[] and pick every DATA_BYTES bytes into packet
   for(int packetCnt = 0; packetCnt < imgSize/DATA_BYTES + 1; packetCnt++){
@@ -163,16 +152,6 @@ void loop() {
         else
           dataPacket[j] = 0;
       }
-
-//can be joined with loop above
-//print last packet
-//      for(int k = 1; k<32; k++){
-//        Serial.print(dataPacket[k]);
-//        Serial.print(",");
-//      }
-//      
-//      Serial.println();
-
     } 
 
     //not last packet, populate packet with all DATA_BYTES bytes
@@ -186,17 +165,18 @@ void loop() {
    dataPacket[0] = imgIdx;
 
 //print packet
-   for( int i =0; i<32;i++){
-//      if(dataPacket[i] <16)
-//        Serial.print(0);
-        
-      Serial.write(dataPacket[i]);
-   }
-   Serial.println();
+//   for( int i =0; i<32;i++){        
+//      Serial.write(dataPacket[i]);
+//   }
 
-//   radio.write(&dataPacket, sizeof(dataPacket));
+   radio.write(&dataPacket, sizeof(dataPacket));
 //   delay(1);
+  //var just to print it after for loop finished
    packetCount = packetCnt;
+   long rfDelay = millis() - start;
+   
+   if(isRfStuck(rfDelay))
+      break;
   }//end for loop, all packets sent
 
   imgIdx++;
@@ -204,39 +184,34 @@ void loop() {
   Serial.print("total packets: ");
   Serial.println(packetCount);
 
-  delay(100);
+  delay(1000);
 
   esp_camera_fb_return(fb);
 
-//00 offset to match packet pattern
-  Serial.print("00pic in ");
-  Serial.println(millis()-start);
-
+  uint16_t radioDelay = millis() - start;
   
-  
-  /*
-  // put your main code here, to run repeatedly:
-//  delay(1000);
-//
-//  camera_fb_t *fb = esp_camera_fb_get();
-//
-//  const char *data = (const char *)fb->buf;
-//  size_t size = fb->len;
-//
-//  for(int i =0 ; i <size; i++){
-//    if(*data<16)
-//      Serial.print(0);
-//      
-////    Serial.print(*data++, HEX);
-//      Serial.write(*data++);
-//  }
-//  Serial.write(" ");
-//  Serial.write(size);
-//  Serial.write("\n\n");
-//
-//  esp_camera_fb_return(fb);
+  Serial.print("pic in ");
+  Serial.println(radioDelay);
+}// end main loop
 
-*/
+boolean isRfStuck(long rfDelay){
+  if(rfDelay > 4000){
+    if (!radio.begin(&SPI2, 15,2)) {
+      Serial.println(F("radio hardware is not responding!!"));
+      while (1) {} // hold in infinite loop
+    }
+
+    radio.setAutoAck(true);
+    radio.setChannel(100);
+    radio.setDataRate(RF24_250KBPS);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.flush_tx();
+    radio.openWritingPipe(address);
+
+    return true;    
+  }
+
+  return false;
 }
 
 void zeroDataPacket(){
@@ -259,8 +234,13 @@ void sendPacketWithImgSize(int imgSize){
     if(size>0)
       idx++;
   }
+  dataPacket[0] = 's';
+  dataPacket[1] = 'i';
+  dataPacket[2] = 'z';
+  dataPacket[3] = 'e';
+  dataPacket[4] = ':';
 
-  for(uint8_t i = 0; i <= idx; i++){
+  for(uint8_t i = 5; i <= idx; i++){
     dataPacket[i] = sizeTable[idx-i];
   }
 
