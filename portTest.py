@@ -2,7 +2,7 @@ import serial
 import time
 
 
-s = serial.Serial('COM3', 500000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
+s = serial.Serial('COM3', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
 
 tStart = 0
 

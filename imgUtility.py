@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import time
 import imutils
 
 
@@ -12,8 +11,6 @@ def makeImg(imgBts):
 
 def makeImg2(imgBts):
 	img = cv2.imdecode(np.frombuffer(imgBts, np.uint8), -1)
-
-	print()
 
 	return img
 
@@ -40,42 +37,3 @@ def resizeImage(image, ratio):
 	resized = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
 
 	return resized
-
-data = b''
-
-f = open('intBytes.txt', 'r')
-
-strDataArray = f.readlines()
-# for c in [chr(int(i)) for i in strDataArray[0].split(',')]:
-# 	print(c.hex(), end=',')
-
-# print(int(strDataArray[0][-2]))
-
-
-for line in strDataArray:#[:-2]:
-	numbers = line.split(',')[2:-1]
-
-	if len(numbers) != 30:
-		print(len(numbers))
-		print(numbers)
-
-
-	for n in numbers:
-		data += (int(n).to_bytes(1,byteorder='big'))
-
-try:
-	img = makeImg2(data)
-	img = rotateImage(img)
-	img = resizeImage(img, 2)
-	displayImg(img)
-	
-	# f.close()
-except Exception as e:
-	print(e)
-
-	# time.sleep(2)
-
-time.sleep(4)
-
-
-# print(data)
