@@ -13,6 +13,8 @@ def makeImg(imgBts):
 def makeImg2(imgBts):
 	img = cv2.imdecode(np.frombuffer(imgBts, np.uint8), -1)
 
+	print()
+
 	return img
 
 def displayImg(img):

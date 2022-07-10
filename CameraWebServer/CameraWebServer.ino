@@ -3,6 +3,10 @@
 #include <nRF24L01.h>       //Download here: https://electronoobs.com/eng_arduino_NRF24_lib.php
 #include <RF24.h>
 
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include "driver/adc.h"
+
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define DATA_BYTES 30
 
@@ -29,7 +33,8 @@ uint8_t packetCount;
 uint8_t imgIdx;
 camera_fb_t *fb;
 
-void setup() {  
+void setup() {
+  disableWiFi();
   Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
@@ -245,4 +250,10 @@ void sendPacketWithImgSize(int imgSize){
   }
 
   radio.write(&dataPacket, sizeof(dataPacket));
+}
+
+void disableWiFi(){
+    adc_power_off();
+    WiFi.disconnect(true);  // Disconnect from the network
+    WiFi.mode(WIFI_OFF);    // Switch WiFi off
 }

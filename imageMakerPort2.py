@@ -1,62 +1,65 @@
 import serial
+import numpy as np
+import cv2
+import time
+# import imutils
 
-
-# may need to add pic id
+from imgUtility import makeImg, displayImg, rotateImage, resizeImage
 
 def checkNewImage(packet):
-	# if packet[-1] == '0' and packet[-2] == '0' and packet[-3] == '0' and packet[-4] == '0' :
-	if packet[:5] == "size:"
+	if packet[:5] == ['115', '105', '122', '101', '58']: # size: string
 		return True
 	else:
 		return False
 
-ser = serial.Serial('COM6', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
-
-newImg = False
-
-# imageBytes = ''
-
-while not newImg:
-	packet = ser.readline().decode('latin').split(',')[:-1]
-	
-
-	if len(packet) == 32:
-		# print(packet[-1], packet[-2], packet[-3], packet[-4])
-		if checkNewImage(packet):
-			newImg = True
+def waitForNewImage():
+	while True:
+		packet = ser.readline().decode('latin').split(',')[:-1]
+		
+		if len(packet) == 32:
+			if checkNewImage(packet):
+				break
 
 
-# while True:
-newImg = False
 
-# why bytearray?
-imageBytesTab = bytearray()
-packets = []
+ser = serial.Serial('COM12', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
 
-# packet = packet.decode('utf-8')
-packet = ''
-lines = 322
+print('start')
+lines = 240
 
-tab = []
+while True:
+	packets = []
+	data = b''
 
-for i in range(lines):
-	packets.append(ser.readline())
+	waitForNewImage()
 
-ser.close()
+	for i in range(lines):
+		packets.append(ser.readline())
 
-for p in packets:
-	p = p.decode('latin').split(',')[:-1]
-	if not checkNewImage(p):
-		print(p)
-	else:
-		print("last packet")
-		print(p)
-		break
+	# ser.close()
 
-	
+	printPacketIdxFlag = False
 
-	# f = open("imgPort.jpg", "wb+")
+	for p in packets:
+		if not printPacketIdxFlag:
+			print(p[:3])
 
-	# f.write(imageBytesTab)
+			printPacketIdxFlag = True
 
-	# f.close()
+		# remove first two index values(pic idx and packet idx) and new line char
+		p = p.decode('latin').split(',')[2:-1]
+		if not checkNewImage(p):
+			# print(p)
+			for number in p:
+				data += (int(number).to_bytes(1,byteorder='big'))
+
+		else:
+			break
+
+	try:
+		img = makeImg(data)
+		img = rotateImage(img)
+		img = resizeImage(img, 2)
+		displayImg(img)
+	except Exception as e:
+		print(e)
