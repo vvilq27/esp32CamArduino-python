@@ -2,14 +2,7 @@ import numpy as np
 import cv2
 import imutils
 
-
 def makeImg(imgBts):
-	d = bytes.fromhex(imgBts.upper())
-	img = cv2.imdecode(np.frombuffer(d, np.uint8), -1)
-
-	return img
-
-def makeImg2(imgBts):
 	img = cv2.imdecode(np.frombuffer(imgBts, np.uint8), -1)
 
 	return img
