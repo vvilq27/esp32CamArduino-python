@@ -10,6 +10,9 @@
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define DATA_BYTES 30
 
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  3        /* Time ESP32 will go to sleep (in seconds) */
+
 #include "camera_pins.h"
 
 /*    pinout for SPI nrf24 connection
@@ -30,7 +33,7 @@ uint8_t dataPacket[32];
 char *data;
 uint32_t imgSize;
 uint8_t packetCount;
-uint8_t imgIdx;
+RTC_DATA_ATTR uint8_t imgIdx = 0;
 camera_fb_t *fb;
 
 void setup() {
@@ -96,42 +99,20 @@ void setup() {
   s->set_hmirror(s, 1);
 #endif
 
+  setupRadio();
 
-  if (!radio.begin(&SPI2, 15,2)) {
-    Serial.println(F("radio hardware is not responding!!"));
-    while (1) {} // hold in infinite loop
-  }
-  
-  radio.setAutoAck(true);
-  radio.setChannel(100);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.openWritingPipe(address);
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
-  fb = esp_camera_fb_get();
+  sendPictureOverRadio();
 
-  data = (char *)fb->buf;
-  imgSize = fb->len;
-
-  for(int i =0 ; i <imgSize; i++){
-    if(*data<16)
-      Serial.print(0);
-      
-    Serial.print(*data++, HEX);
-
-    if(i%DATA_BYTES == 0)
-      Serial.println();
-  }
-
-  Serial.println();
-  Serial.println(imgSize);
-
-  esp_camera_fb_return(fb);
-
-  imgIdx =0;
+  esp_deep_sleep_start();
 } 
 
 void loop() {
+  //this will never be reached - sleep mode
+}// end main loop
+
+void sendPictureOverRadio(){
   long start = millis();
   fb = esp_camera_fb_get();
 
@@ -169,13 +150,8 @@ void loop() {
    dataPacket[1] = packetCnt;
    dataPacket[0] = imgIdx;
 
-//print packet
-//   for( int i =0; i<32;i++){        
-//      Serial.write(dataPacket[i]);
-//   }
-
    radio.write(&dataPacket, sizeof(dataPacket));
-//   delay(1);
+   
   //var just to print it after for loop finished
    packetCount = packetCnt;
    long rfDelay = millis() - start;
@@ -189,29 +165,18 @@ void loop() {
   Serial.print("total packets: ");
   Serial.println(packetCount);
 
-  delay(1000);
-
   esp_camera_fb_return(fb);
 
   uint16_t radioDelay = millis() - start;
   
   Serial.print("pic in ");
   Serial.println(radioDelay);
-}// end main loop
+}
+
 
 boolean isRfStuck(long rfDelay){
   if(rfDelay > 4000){
-    if (!radio.begin(&SPI2, 15,2)) {
-      Serial.println(F("radio hardware is not responding!!"));
-      while (1) {} // hold in infinite loop
-    }
-
-    radio.setAutoAck(true);
-    radio.setChannel(100);
-    radio.setDataRate(RF24_250KBPS);
-    radio.setPALevel(RF24_PA_LOW);
-    radio.flush_tx();
-    radio.openWritingPipe(address);
+    setupRadio();
 
     return true;    
   }
@@ -250,6 +215,19 @@ void sendPacketWithImgSize(int imgSize){
   }
 
   radio.write(&dataPacket, sizeof(dataPacket));
+}
+
+void setupRadio(){
+  if (!radio.begin(&SPI2, 15,2)) {
+    Serial.println(F("radio hardware is not responding!!"));
+    while (1) {} // hold in infinite loop
+  }
+  
+  radio.setAutoAck(true);
+  radio.setChannel(100);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.openWritingPipe(address);
 }
 
 void disableWiFi(){
