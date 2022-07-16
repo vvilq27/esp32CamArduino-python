@@ -32,6 +32,8 @@ uint32_t imgSize;
 uint8_t packetCount;
 uint8_t imgIdx;
 camera_fb_t *fb;
+sensor_t * s;
+uint8_t imgQuality;
 
 void setup() {
   disableWiFi();
@@ -80,7 +82,7 @@ void setup() {
     return;
   }
 
-  sensor_t * s = esp_camera_sensor_get();
+  s = esp_camera_sensor_get();
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
     s->set_vflip(s, 1); // flip it back
@@ -90,6 +92,8 @@ void setup() {
   
   // drop down frame size for higher initial frame rate
   s->set_framesize(s, FRAMESIZE_QVGA);
+  imgQuality = 6;
+  s->set_quality(s, imgQuality);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
@@ -97,22 +101,25 @@ void setup() {
 #endif
 
 
-  if (!radio.begin(&SPI2, 15,2)) {
-    Serial.println(F("radio hardware is not responding!!"));
-    while (1) {} // hold in infinite loop
-  }
-  
-  radio.setAutoAck(true);
-  radio.setChannel(100);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.openWritingPipe(address);
+//  if (!radio.begin(&SPI2, 15,2)) {
+//    Serial.println(F("radio hardware is not responding!!"));
+//    while (1) {} // hold in infinite loop
+//  }
+//  
+//  radio.setAutoAck(true);
+//  radio.setChannel(100);
+//  radio.setDataRate(RF24_250KBPS);
+//  radio.setPALevel(RF24_PA_LOW);
+//  radio.openWritingPipe(address);
 
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
   imgSize = fb->len;
 
+  Serial.print("size:");
+  Serial.println(imgSize);
+  
   for(int i =0 ; i <imgSize; i++){
     if(*data<16)
       Serial.print(0);
@@ -123,23 +130,58 @@ void setup() {
       Serial.println();
   }
 
-  Serial.println();
-  Serial.println(imgSize);
-
-  esp_camera_fb_return(fb);
-
+  Serial.println("img cplt");
+  
+//  esp_camera_fb_return(fb);
   imgIdx =0;
 } 
 
-void loop() {
-  long start = millis();
-  isRfStuck();
-  fb = esp_camera_fb_get();
-
+void loop() { 
   data = (char *)fb->buf;
   imgSize = fb->len;
-  packetCount = 0;
   
+  Serial.print("size:");
+  Serial.println(imgSize);
+  
+  for(int i =0 ; i <imgSize; i++){      
+    Serial.write(*data++);
+
+    if(i%DATA_BYTES == 0)
+      Serial.println();
+  }
+
+  Serial.println("\r\nimg cplt");
+
+  long start = millis();
+  while(millis() - start < 3000){
+    if(Serial.available() > 0){
+      char c = Serial.read();
+      
+      if(c == 'd'){
+        imgQuality += 1;
+        s->set_quality(s, imgQuality);
+
+        Serial.print("decrease quality ");
+        Serial.println(imgQuality);
+  
+        esp_camera_fb_return(fb);
+        fb = esp_camera_fb_get();
+      }
+  
+      if(c == 'u'){
+        imgQuality -= 1;
+        s->set_quality(s, imgQuality);
+        
+        Serial.print("increase quality ");
+        Serial.println(imgQuality);
+  
+        esp_camera_fb_return(fb);
+        fb = esp_camera_fb_get();
+      }
+  }
+  }
+  
+  /*
   sendPacketWithImgSize(imgSize);
   
   // go thru data[] and pick every DATA_BYTES bytes into packet
@@ -170,13 +212,8 @@ void loop() {
    dataPacket[1] = packetCnt;
    dataPacket[0] = imgIdx;
 
-//print packet
-//   for( int i =0; i<32;i++){        
-//      Serial.write(dataPacket[i]);
-//   }
-
    radio.write(&dataPacket, sizeof(dataPacket));
-//   delay(1);
+
   //var just to print it after for loop finished
    packetCount = packetCnt;
 //   long rfDelay = millis() - start;
@@ -198,6 +235,8 @@ void loop() {
   
   Serial.print("pic in ");
   Serial.println(radioDelay);
+
+  */
 }// end main loop
 
 boolean isRfStuck(){
