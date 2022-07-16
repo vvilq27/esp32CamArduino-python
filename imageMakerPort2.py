@@ -2,6 +2,7 @@ import serial
 import numpy as np
 import cv2
 import time
+import datetime
 # import imutils
 
 from imgUtility import makeImg, displayImg, rotateImage, resizeImage
@@ -22,44 +23,63 @@ def waitForNewImage():
 
 
 
-ser = serial.Serial('COM12', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
+ser = serial.Serial('COM5', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
 
 print('start')
-lines = 240
+
+picIdx = 0
+
+waitForNewImage()
 
 while True:
-	packets = []
+	listOfPackets = []
 	data = b''
 
-	waitForNewImage()
 
-	for i in range(lines):
-		packets.append(ser.readline())
-
-	# ser.close()
-
+	newImage = False
 	printPacketIdxFlag = False
+	
+	if picIdx % 5 == 0:
+		ser.reset_input_buffer()
+		waitForNewImage()
 
-	for p in packets:
+	while not newImage:
+		line = ser.readline().decode('latin').split(',')[:-1]
+		newImage = checkNewImage(line)
+
+		if newImage:
+			break;
+
+			# print image number
 		if not printPacketIdxFlag:
-			print(p[:3])
+			print(line[0])
 
 			printPacketIdxFlag = True
 
-		# remove first two index values(pic idx and packet idx) and new line char
-		p = p.decode('latin').split(',')[2:-1]
-		if not checkNewImage(p):
-			# print(p)
-			for number in p:
-				data += (int(number).to_bytes(1,byteorder='big'))
+				# remove two first index values
+		listOfPackets.append(line[2:])
 
-		else:
-			break
+	for integersList in listOfPackets:
+		for number in integersList:
+			try:
+				data += (int(number).to_bytes(1,byteorder='big'))
+			except Exception as e:
+				print(e)
+				break;
 
 	try:
 		img = makeImg(data)
 		img = rotateImage(img)
 		img = resizeImage(img, 2)
 		displayImg(img)
+
+		if picIdx % 15 == 0:
+			f = open(datetime.datetime.now().strftime("%x") + "/imgPort" + str(round(picIdx/5)) + ".jpg", "wb+")
+			
+
+			f.write(data)
+
+			f.close()
+		picIdx += 1
 	except Exception as e:
 		print(e)
