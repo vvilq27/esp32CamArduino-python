@@ -136,7 +136,7 @@ void setup() {
   imgIdx =0;
 } 
 
-void loop() { 
+void loop() {
   data = (char *)fb->buf;
   imgSize = fb->len;
   
@@ -154,31 +154,7 @@ void loop() {
 
   long start = millis();
   while(millis() - start < 3000){
-    if(Serial.available() > 0){
-      char c = Serial.read();
-      
-      if(c == 'd'){
-        imgQuality += 1;
-        s->set_quality(s, imgQuality);
-
-        Serial.print("decrease quality ");
-        Serial.println(imgQuality);
-  
-        esp_camera_fb_return(fb);
-        fb = esp_camera_fb_get();
-      }
-  
-      if(c == 'u'){
-        imgQuality -= 1;
-        s->set_quality(s, imgQuality);
-        
-        Serial.print("increase quality ");
-        Serial.println(imgQuality);
-  
-        esp_camera_fb_return(fb);
-        fb = esp_camera_fb_get();
-      }
-  }
+    processSerial();
   }
   
   /*
@@ -239,6 +215,33 @@ void loop() {
   */
 }// end main loop
 
+void processSerial(){
+  if(Serial.available() > 0){
+    char c = Serial.read();
+    
+    if(c == 'd'){
+      imgQuality += 1;
+      s->set_quality(s, imgQuality);
+
+      Serial.print("decrease quality ");
+      Serial.println(imgQuality);
+
+      esp_camera_fb_return(fb);
+      fb = esp_camera_fb_get();
+    }
+
+    if(c == 'u'){
+      imgQuality -= 1;
+      s->set_quality(s, imgQuality);
+      
+      Serial.print("increase quality ");
+      Serial.println(imgQuality);
+
+      esp_camera_fb_return(fb);
+      fb = esp_camera_fb_get();
+    }
+  }
+}
 boolean isRfStuck(){
     if (!radio.begin(&SPI2, 15,2)) {
       Serial.println(F("radio hardware is not responding!!"));

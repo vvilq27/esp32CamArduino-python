@@ -8,6 +8,7 @@ import datetime
 from imgUtility import makeImg, displayImg, rotateImage, resizeImage
 
 def checkNewImage(packet):
+	# print(packet[:5])
 	if packet[:5] == ['115', '105', '122', '101', '58']: # size: string
 		return True
 	else:
@@ -15,15 +16,16 @@ def checkNewImage(packet):
 
 def waitForNewImage():
 	while True:
-		packet = ser.readline().decode('latin').split(',')[:-1]
-		
+		# packet = ser.readline().decode('latin').split(',')[:-1]
+		packet = ser.readline()
+		print(len(packet))
 		if len(packet) == 32:
 			if checkNewImage(packet):
 				break
 
 
 
-ser = serial.Serial('COM5', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
+ser = serial.Serial('COM3', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
 
 print('start')
 
