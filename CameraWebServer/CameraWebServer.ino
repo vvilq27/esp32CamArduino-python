@@ -133,6 +133,7 @@ void setup() {
 
 void loop() {
   long start = millis();
+  isRfStuck();
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
@@ -178,10 +179,10 @@ void loop() {
 //   delay(1);
   //var just to print it after for loop finished
    packetCount = packetCnt;
-   long rfDelay = millis() - start;
-   
-   if(isRfStuck(rfDelay))
-      break;
+//   long rfDelay = millis() - start;
+//   
+//   if(isRfStuck(rfDelay))
+//      break;
   }//end for loop, all packets sent
 
   imgIdx++;
@@ -199,8 +200,7 @@ void loop() {
   Serial.println(radioDelay);
 }// end main loop
 
-boolean isRfStuck(long rfDelay){
-  if(rfDelay > 4000){
+boolean isRfStuck(){
     if (!radio.begin(&SPI2, 15,2)) {
       Serial.println(F("radio hardware is not responding!!"));
       while (1) {} // hold in infinite loop
@@ -214,9 +214,6 @@ boolean isRfStuck(long rfDelay){
     radio.openWritingPipe(address);
 
     return true;    
-  }
-
-  return false;
 }
 
 void zeroDataPacket(){
