@@ -91,15 +91,14 @@ void setup() {
   }
   
   // drop down frame size for higher initial frame rate
-  s->set_framesize(s, FRAMESIZE_QVGA);
-  imgQuality = 6;
+  s->set_framesize(s, FRAMESIZE_XGA);
+  imgQuality = 10;
   s->set_quality(s, imgQuality);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
 #endif
-
 
 //  if (!radio.begin(&SPI2, 15,2)) {
 //    Serial.println(F("radio hardware is not responding!!"));
@@ -132,28 +131,42 @@ void setup() {
 
   Serial.println("img cplt");
   
-//  esp_camera_fb_return(fb);
+  esp_camera_fb_return(fb);
   imgIdx =0;
 } 
 
 void loop() {
+  uint8_t idx = 0;
+  fb = esp_camera_fb_get();
+  
   data = (char *)fb->buf;
   imgSize = fb->len;
   
   Serial.print("size:");
   Serial.println(imgSize);
   
-  for(int i =0 ; i <imgSize; i++){      
-    Serial.write(*data++);
+  for(int i =0 ; i <imgSize; i++){ 
+    if(i%DATA_BYTES == 0){
+      Serial.print(idx++);
+      Serial.print(",");
+    }
+         
+    Serial.print(*data++,DEC);
+    Serial.print(",");
 
-    if(i%DATA_BYTES == 0)
+    if(i%DATA_BYTES == 29){
       Serial.println();
-  }
+      delay(5);
+    }
+   }
 
-  Serial.println("\r\nimg cplt");
+  Serial.println();
+  Serial.println("img cplt");
 
   long start = millis();
-  while(millis() - start < 3000){
+  esp_camera_fb_return(fb);
+  
+  while(millis() - start < 15000){
     processSerial();
   }
   
@@ -226,8 +239,8 @@ void processSerial(){
       Serial.print("decrease quality ");
       Serial.println(imgQuality);
 
-      esp_camera_fb_return(fb);
-      fb = esp_camera_fb_get();
+//      esp_camera_fb_return(fb);
+//      fb = esp_camera_fb_get();
     }
 
     if(c == 'u'){
@@ -237,8 +250,8 @@ void processSerial(){
       Serial.print("increase quality ");
       Serial.println(imgQuality);
 
-      esp_camera_fb_return(fb);
-      fb = esp_camera_fb_get();
+//      esp_camera_fb_return(fb);
+//      fb = esp_camera_fb_get();
     }
   }
 }

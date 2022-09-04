@@ -8,7 +8,10 @@ def makeImg(imgBts):
 	return img
 
 def displayImg(img):
-	cv2.imshow('Input', img)
+	cv2.namedWindow('Live', cv2.WINDOW_NORMAL)
+	
+	windowResize = cv2.resizeWindow('Live', (2*320, 480))
+	cv2.imshow('Live', img)	
 
 	c = cv2.waitKey(1)
 
