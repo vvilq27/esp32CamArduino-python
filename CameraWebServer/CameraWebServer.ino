@@ -1,10 +1,6 @@
 #include "esp_camera.h"
 #include <SPI.h>
-#include <nRF24L01.h>       //Download here: https://electronoobs.com/eng_arduino_NRF24_lib.php
-#include <RF24.h>
-
 #include <WiFi.h>
-#include <esp_wifi.h>
 #include "driver/adc.h"
 
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
@@ -19,14 +15,7 @@
  *     io13 - MOSI
  *     io12 - MISO
  */
- 
-void startCameraServer();
 
-SPIClass SPI2(HSPI);
-RF24 radio(15,2);
-const uint64_t address = 0xE8E8F0F0E1LL;
-
-uint8_t dataPacket[32];
 char *data;
 uint32_t imgSize;
 uint8_t packetCount;
@@ -96,18 +85,6 @@ void setup() {
   s->set_hmirror(s, 1);
 #endif
 
-
-  if (!radio.begin(&SPI2, 15,2)) {
-    Serial.println(F("radio hardware is not responding!!"));
-    while (1) {} // hold in infinite loop
-  }
-  
-  radio.setAutoAck(true);
-  radio.setChannel(100);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.openWritingPipe(address);
-
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
@@ -133,121 +110,18 @@ void setup() {
 
 void loop() {
   long start = millis();
-  isRfStuck();
+
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
   imgSize = fb->len;
-  packetCount = 0;
+
+  Serial.println(imgSize);
   
-  sendPacketWithImgSize(imgSize);
-  
-  // go thru data[] and pick every DATA_BYTES bytes into packet
-  for(int packetCnt = 0; packetCnt < imgSize/DATA_BYTES + 1; packetCnt++){
-    
-    //case for last packet, to not exceed data[] index
-    if(packetCnt == imgSize/DATA_BYTES){
-      int remainingBytes = imgSize - packetCnt*DATA_BYTES;
-
-      zeroDataPacket();
-
-      //2 is offset from img index and packet index
-      for(int j = 2; j < 32; j++){
-        if(j <= remainingBytes)
-          dataPacket[j] = *data++;
-        else
-          dataPacket[j] = 0;
-      }
-    } 
-
-    //not last packet, populate packet with all DATA_BYTES bytes
-    else {
-      for(int j = 2; j <32; j++){          
-        dataPacket[j] = *data++;
-      }
-    }
-   
-   dataPacket[1] = packetCnt;
-   dataPacket[0] = imgIdx;
-
-//print packet
-//   for( int i =0; i<32;i++){        
-//      Serial.write(dataPacket[i]);
-//   }
-
-   radio.write(&dataPacket, sizeof(dataPacket));
-//   delay(1);
-  //var just to print it after for loop finished
-   packetCount = packetCnt;
-//   long rfDelay = millis() - start;
-//   
-//   if(isRfStuck(rfDelay))
-//      break;
-  }//end for loop, all packets sent
-
-  imgIdx++;
-
-  Serial.print("total packets: ");
-  Serial.println(packetCount);
-
   delay(1000);
 
   esp_camera_fb_return(fb);
-
-  uint16_t radioDelay = millis() - start;
-  
-  Serial.print("pic in ");
-  Serial.println(radioDelay);
 }// end main loop
-
-boolean isRfStuck(){
-    if (!radio.begin(&SPI2, 15,2)) {
-      Serial.println(F("radio hardware is not responding!!"));
-      while (1) {} // hold in infinite loop
-    }
-
-    radio.setAutoAck(true);
-    radio.setChannel(100);
-    radio.setDataRate(RF24_250KBPS);
-    radio.setPALevel(RF24_PA_LOW);
-    radio.flush_tx();
-    radio.openWritingPipe(address);
-
-    return true;    
-}
-
-void zeroDataPacket(){
-  for(int j = 0; j <32; j++)
-        dataPacket[j] = 0;
-}
-
-void sendPacketWithImgSize(int imgSize){
-  int size = imgSize;
-  int sizeTable[4];
-
-  zeroDataPacket();
-
-  uint8_t idx = 0;
-
-  while (size > 0) {
-    sizeTable[idx] = size%0x100;
-    size = size >> 8;
-
-    if(size>0)
-      idx++;
-  }
-  dataPacket[0] = 's';
-  dataPacket[1] = 'i';
-  dataPacket[2] = 'z';
-  dataPacket[3] = 'e';
-  dataPacket[4] = ':';
-
-  for(uint8_t i = 5; i <= idx; i++){
-    dataPacket[i] = sizeTable[idx-i];
-  }
-
-  radio.write(&dataPacket, sizeof(dataPacket));
-}
 
 void disableWiFi(){
     adc_power_off();
