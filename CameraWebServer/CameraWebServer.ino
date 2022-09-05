@@ -1,6 +1,6 @@
 #include "esp_camera.h"
 #include <SPI.h>
-#include <WiFi.h>
+//#include <WiFi.h>
 #include "driver/adc.h"
 
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
@@ -23,7 +23,7 @@ uint8_t imgIdx;
 camera_fb_t *fb;
 
 void setup() {
-  disableWiFi();
+//  disableWiFi();
   Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
@@ -48,19 +48,23 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
+  config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
   
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
-  if(psramFound()){
-    config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 10;
-    config.fb_count = 2;
-  } else {
-    config.frame_size = FRAMESIZE_QQVGA;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
-  }
+//  if(psramFound()){
+//    config.frame_size = FRAMESIZE_UXGA;
+//    config.jpeg_quality = 10;
+//    config.fb_count = 2;
+//  } else {
+//    config.frame_size = FRAMESIZE_QQVGA;
+//    config.jpeg_quality = 40;
+//    config.fb_count = 1;
+//  }
+
+  config.frame_size = FRAMESIZE_QQVGA;
+  config.jpeg_quality = 30;
+  config.fb_count = 1;
 
   // camera init
   esp_err_t err = esp_camera_init(&config);
@@ -78,13 +82,14 @@ void setup() {
   }
   
   // drop down frame size for higher initial frame rate
-  s->set_framesize(s, FRAMESIZE_QVGA);
+//  s->set_framesize(s, FRAMESIZE_QQVGA);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
 #endif
 
+  
   fb = esp_camera_fb_get();
 
   data = (char *)fb->buf;
@@ -100,7 +105,7 @@ void setup() {
       Serial.println();
   }
 
-  Serial.println();
+  Serial.println("init image size: ");
   Serial.println(imgSize);
 
   esp_camera_fb_return(fb);
@@ -116,15 +121,17 @@ void loop() {
   data = (char *)fb->buf;
   imgSize = fb->len;
 
-  Serial.println(imgSize);
+//  Serial.println(imgSize);
+  while(imgSize--)
+    Serial.write(*data++);
   
   delay(1000);
 
   esp_camera_fb_return(fb);
 }// end main loop
 
-void disableWiFi(){
-    adc_power_off();
-    WiFi.disconnect(true);  // Disconnect from the network
-    WiFi.mode(WIFI_OFF);    // Switch WiFi off
-}
+//void disableWiFi(){
+//    adc_power_off();
+//    WiFi.disconnect(true);  // Disconnect from the network
+//    WiFi.mode(WIFI_OFF);    // Switch WiFi off
+//}
