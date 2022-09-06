@@ -49,20 +49,8 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
-  
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
-  //                      for larger pre-allocated frame buffer.
-//  if(psramFound()){
-//    config.frame_size = FRAMESIZE_UXGA;
-//    config.jpeg_quality = 10;
-//    config.fb_count = 2;
-//  } else {
-//    config.frame_size = FRAMESIZE_QQVGA;
-//    config.jpeg_quality = 40;
-//    config.fb_count = 1;
-//  }
 
-  config.frame_size = FRAMESIZE_QQVGA;
+  config.frame_size = FRAMESIZE_QVGA;
   config.jpeg_quality = 30;
   config.fb_count = 1;
 
@@ -121,10 +109,12 @@ void loop() {
   data = (char *)fb->buf;
   imgSize = fb->len;
 
-//  Serial.println(imgSize);
+  Serial.print("newimg:");
+  Serial.println(imgSize);
+
   while(imgSize--)
     Serial.write(*data++);
-  
+  Serial.println();
   delay(1000);
 
   esp_camera_fb_return(fb);
