@@ -2,6 +2,9 @@ import cv2
 import numpy
 import serial
 import os
+import time
+from imgUtility import makeImg, displayImg, rotateImage, resizeImage
+
 
 def checkNewImage(packet):
 	if packet[:7] == 'newimg:':
@@ -11,7 +14,7 @@ def checkNewImage(packet):
 		return False
 
 def waitForNewImage():
-	# ser.reset_input_buffer()
+	ser.reset_input_buffer()
 	while True:
 		packet = ser.readline()
 
@@ -26,20 +29,21 @@ def waitForNewImage():
 ser = serial.Serial('COM3', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, rtscts=1)
 
 waitForNewImage()
-data = ser.read(76800)
-print('pic done')
+while True:
+	data = ser.read(76800)
+	print('pic done')
 
-randomByteArray = bytearray(data)
-flatNumpyArray = numpy.array(randomByteArray)
-
-
-grayImage = flatNumpyArray.reshape(120*2, 160*2)
-grayImage = grayImage.transpose()
-grayImage = numpy.flip(grayImage,1)
-
-cv2.imwrite('RandomGray.png', grayImage)
-
-os.startfile('.\\RandomGray.png')
+	randomByteArray = bytearray(data)
+	flatNumpyArray = numpy.array(randomByteArray)
 
 
-# print(type(int(hexDataList[0],16)))
+	grayImage = flatNumpyArray.reshape(120*2, 160*2)
+	grayImage = grayImage.transpose()
+	grayImage = numpy.flip(grayImage,1)
+
+	# cv2.imwrite('RandomGray.png', grayImage)
+
+	displayImg(grayImage)
+
+	ser.readline()
+	ser.readline()

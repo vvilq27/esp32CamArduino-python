@@ -115,7 +115,7 @@ void loop() {
   while(imgSize--)
     Serial.write(*data++);
   Serial.println();
-  delay(1000);
+  delay(100);
 
   esp_camera_fb_return(fb);
 }// end main loop
