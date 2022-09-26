@@ -1,4 +1,4 @@
-#include "esp_camera.h"
+v#include "esp_camera.h"
 #include <SPI.h>
 //#include <WiFi.h>
 #include "driver/adc.h"
@@ -101,6 +101,7 @@ void setup() {
   imgIdx =0;
 } 
 
+
 void loop() {
   long start = millis();
 
@@ -112,8 +113,23 @@ void loop() {
   Serial.print("newimg:");
   Serial.println(imgSize);
 
-  while(imgSize--)
-    Serial.write(*data++);
+  uint32_t pixId = 0;
+  uint8_t rowId = 0;
+  
+  while(imgSize){
+    Serial.print(imgIdx);
+    Serial.print(',');
+    Serial.print(rowId++);
+    Serial.print("|");
+    
+    for(uint8_t i = 0; i <100; i++){
+      Serial.write(*data++);
+      imgSize--;
+    }
+    Serial.println();
+  }
+  
+  imgIdx++;
   Serial.println();
   delay(100);
 
