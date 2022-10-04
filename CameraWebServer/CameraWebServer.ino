@@ -135,7 +135,10 @@ void sendImg(uint32_t imgSize){
       printImageIndexes();
     
       for(uint8_t i = 0; i <100; i++){
-        Serial.write(*data++);
+        char pixel = *data++;
+        if(pixel == 10 || pixel == 13)
+          pixel = 11;
+        Serial.write(pixel);
         imgSize--;
       }
       

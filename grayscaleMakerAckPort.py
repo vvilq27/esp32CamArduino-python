@@ -5,6 +5,8 @@ import os
 import time
 from imgUtility import makeImg, displayImg, rotateImage, resizeImage
 
+import collections
+
 class ImgRow:
 	def __init__(self, imgIdx, imgRowIdx, data):
 		self.imgIdx = imgIdx
@@ -41,24 +43,69 @@ ser = serial.Serial('COM3', 1000000, timeout=0.01 )#, parity=serial.PARITY_EVEN,
 
 # print(bytesCountToRead)
 
+ser.flush()
+
+rowNumbers = list(range(20))
+
+# rowNumbers.remove(1)
+# rowNumbers.remove(5)
+# print(rowNumbers)
+
+rows = dict()
+rws = []
+
+while ser.in_waiting < 2200:
+	ser.write(b'ok')
+	time.sleep(0.4)
 
 
-ser.write(b'ok');
-time.sleep(0.2)
-
-print(ser.in_waiting)
 
 while ser.in_waiting != 0:
 	line = ser.readline()
 	line = line.strip().decode('latin')
+
 	try:
 		indexes, data = line.split('|')
 	except:
 		continue
 	imgIdx, imgRowIdx = indexes.split(',')
 
-	img = ImgRow(imgIdx, imgRowIdx, data)
-	print(img)
+	rowNumbers.remove(int(imgRowIdx))
+
+	# row = ImgRow(imgIdx, imgRowIdx, data)
+
+	# print(len(data), end = ' ')
+	# print(row)
+
+	rows[int(imgRowIdx)] = data
+
+	# for r in rows:
+	# 	print(r)
+
+
+# for r in rows:
+# 	print(id(r))
+# 	print(r)
+
+
+for l in rows:
+	print(l, end='. ')
+	print(rows[l])
+
+
+for n in rowNumbers:
+	print(n, end = ' ')
+	ser.write(bytes(str(n), 'utf-8'))
+	time.sleep(0.1)
+	row = ser.readline().decode('latin').strip()
+	rows[int(n)] = row
+
+
+print()
+
+for l in collections.OrderedDict(sorted(rows.items())):
+	print(l, end='. ')
+	print(rows[l])
 
 
 
