@@ -1,4 +1,4 @@
-v#include "esp_camera.h"
+#include "esp_camera.h"
 #include <SPI.h>
 //#include <WiFi.h>
 #include "driver/adc.h"
@@ -20,10 +20,13 @@ char *data;
 uint32_t imgSize;
 uint8_t packetCount;
 uint8_t imgIdx;
+uint8_t rowId ;
 camera_fb_t *fb;
+bool rowValidFlag;
 
 void setup() {
 //  disableWiFi();
+  Serial.setTimeout(10);
   Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
@@ -99,6 +102,7 @@ void setup() {
   esp_camera_fb_return(fb);
 
   imgIdx =0;
+  rowValidFlag = false;
 } 
 
 
@@ -113,28 +117,72 @@ void loop() {
   Serial.print("newimg:");
   Serial.println(imgSize);
 
-  uint32_t pixId = 0;
-  uint8_t rowId = 0;
+  rowId = 0;
   
-  while(imgSize){
-    Serial.print(imgIdx);
-    Serial.print(',');
-    Serial.print(rowId++);
-    Serial.print("|");
-    
-    for(uint8_t i = 0; i <100; i++){
-      Serial.write(*data++);
-      imgSize--;
-    }
-    Serial.println();
-  }
+//  sendImg(imgSize);
+  sendImg(2000);
+
+  resendDataUntilImageValid();
   
   imgIdx++;
   Serial.println();
-  delay(100);
 
   esp_camera_fb_return(fb);
 }// end main loop
+
+void sendImg(uint32_t imgSize){
+    while(imgSize){
+      printImageIndexes();
+    
+      for(uint8_t i = 0; i <100; i++){
+        Serial.write(*data++);
+        imgSize--;
+      }
+      
+      Serial.println();
+  }
+}
+
+void printImageIndexes(){
+  if(imgIdx < 10)
+      Serial.print("00");
+    if(imgIdx > 9 && imgIdx < 100)
+      Serial.print("0");
+    Serial.print(imgIdx);
+    Serial.print(',');
+
+    if(rowId < 10)
+      Serial.print("00");
+    if(rowId > 9 && rowId < 100)
+      Serial.print("0");
+    Serial.print(rowId++);
+    Serial.print("|");
+}
+
+void resendDataUntilImageValid(){
+  while(!rowValidFlag){
+    while (Serial.available() > 0) {
+      String strRowNumber = Serial.readStringUntil('\n');
+      strRowNumber.trim();
+
+      if(strRowNumber == "ok"){
+        rowValidFlag = true;
+      }
+      else {
+        data = (char *)fb->buf;
+        uint8_t intRowNumber = strRowNumber.toInt();
+        data += intRowNumber * 100;
+        
+        for(uint8_t i = 0; i <100; i++){
+          Serial.write(*data++);
+        }
+
+        Serial.println();
+      }
+    }
+  }
+  rowValidFlag = false;
+}
 
 //void disableWiFi(){
 //    adc_power_off();

@@ -30,10 +30,35 @@ ser = serial.Serial('COM3', 1000000, timeout=10 )#, parity=serial.PARITY_EVEN, r
 
 waitForNewImage()
 while True:
-	data = ser.read(76800)
+	data = ser.read(76800+6144+3*256*2)
 	print('pic done')
 
 	randomByteArray = bytearray(data)
+
+
+# //unreliable, buffer has corrupted data sometimes, without data check image will be often scattered
+	for i in range(0, 3*256):
+		print(randomByteArray[i*100:i*100+8])
+
+		for k in range(0,8):
+			
+			# print(chr(randomByteArray[i*100]), end=',')
+			del randomByteArray[i*100]
+
+		print()
+
+		# print(randomByteArray[i*100+100])
+		del randomByteArray[i*100+100]
+		del randomByteArray[i*100+100]
+		# print(randomByteArray[i*100+95:i*100+105])
+
+
+	# print(randomByteArray[:200])''
+
+	print(len(randomByteArray))
+
+	# break
+
 	flatNumpyArray = numpy.array(randomByteArray)
 
 
