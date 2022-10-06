@@ -29,7 +29,7 @@ def validateLine(line):
 		return True
 
 def getRowFromMcu(rowNumber):
-	ser.write(bytes(str(n), 'utf-8'))
+	ser.write(bytes(str(rowNumber), 'utf-8'))
 
 	delay = 0.05
 
@@ -40,7 +40,7 @@ def getRowFromMcu(rowNumber):
 		delay += 0.01
 		print("getRowFromMcu | delay increased")
 
-		ser.write(bytes(str(n), 'utf-8'))
+		ser.write(bytes(str(rowNumber), 'utf-8'))
 
 	row = ser.read(ser.in_waiting)[:-2]
 	
@@ -113,15 +113,15 @@ while ser.in_waiting != 0:
 
 print(missingRowNumbers)
 
-for n in missingRowNumbers:
-	print(n, end = ' is missing, retry\n')
-	row = getRowFromMcu(n)
+for rowNumber in missingRowNumbers:
+	# print(n, end = ' is missing, retry\n')
+	row = getRowFromMcu(rowNumber)
 
 	while len(row) != 100:
-		print("recollecting row {}".format(n))
+		print("recollecting row {}".format(rowNumber))
 		row = getRowFromMcu(n)
 
-	rows[int(n)] = row
+	rows[int(rowNumber)] = row
 
 
 result = bytearray()
@@ -130,6 +130,8 @@ for l in collections.OrderedDict(sorted(rows.items())):
 	result += rows[l]
 
 makeGrayImg(result)
+
+print(len(result))
 
 
 time.sleep(3)
