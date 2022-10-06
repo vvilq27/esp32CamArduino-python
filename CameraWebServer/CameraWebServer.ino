@@ -172,7 +172,7 @@ void resendDataUntilImageValid(){
       }
       else {
         data = (char *)fb->buf;
-        uint8_t intRowNumber = strRowNumber.toInt();
+        uint16_t intRowNumber = strRowNumber.toInt();
         data += intRowNumber * 100;
         
         for(uint8_t i = 0; i <100; i++){

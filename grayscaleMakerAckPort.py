@@ -46,6 +46,15 @@ def getRowFromMcu(rowNumber):
 	
 	return row
 
+def collectMissingRows(missingRowNumbers):
+	for rowNumber in missingRowNumbers:
+		row = getRowFromMcu(rowNumber)
+
+		while len(row) != 100:
+			print("recollecting row {}".format(rowNumber))
+			row = getRowFromMcu(n)
+
+		rows[int(rowNumber)] = row
 
 
 # ==============================================
@@ -113,16 +122,7 @@ while ser.in_waiting != 0:
 
 print(missingRowNumbers)
 
-for rowNumber in missingRowNumbers:
-	# print(n, end = ' is missing, retry\n')
-	row = getRowFromMcu(rowNumber)
-
-	while len(row) != 100:
-		print("recollecting row {}".format(rowNumber))
-		row = getRowFromMcu(n)
-
-	rows[int(rowNumber)] = row
-
+collectMissingRows(missingRowNumbers)
 
 result = bytearray()
 
