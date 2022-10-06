@@ -20,7 +20,7 @@ char *data;
 uint32_t imgSize;
 uint8_t packetCount;
 uint8_t imgIdx;
-uint8_t rowId ;
+uint16_t rowId ;
 camera_fb_t *fb;
 bool rowValidFlag;
 
@@ -119,8 +119,7 @@ void loop() {
 
   rowId = 0;
   
-//  sendImg(imgSize);
-  sendImg(2000);
+  sendImg(imgSize);
 
   resendDataUntilImageValid();
   
@@ -156,7 +155,7 @@ void printImageIndexes(){
 
     if(rowId < 10)
       Serial.print("00");
-    if(rowId > 9 && rowId < 100)
+    else if (rowId > 9 && rowId < 100)
       Serial.print("0");
     Serial.print(rowId++);
     Serial.print("|");

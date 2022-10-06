@@ -4,8 +4,11 @@ import serial
 import os
 import time
 from imgUtility import makeImg, displayImg, rotateImage, resizeImage
-
+from grayscaleImgFunction import makeGrayImg
 import collections
+import re
+
+
 
 class ImgRow:
 	def __init__(self, imgIdx, imgRowIdx, data):
@@ -36,76 +39,129 @@ def waitForNewImage():
 			if newImgLength:
 				return newImgLength
 
+def getRowFromMcu(rowNumber):
+	ser.write(bytes(str(n), 'utf-8'))
+	time.sleep(0.15)
+	row = ser.readline()[:-2]
+	# print(len(row) , end=' ')
+	# print(row)
+
+	return row
+
 
 ser = serial.Serial('COM3', 1000000, timeout=0.01 )#, parity=serial.PARITY_EVEN, rtscts=1)
+ser.set_buffer_size(rx_size = 100000, tx_size = 256)
+
 
 # bytesCountToRead = waitForNewImage()
 
 # print(bytesCountToRead)
 
-ser.flush()
+ser.reset_input_buffer()
 
-rowNumbers = list(range(20))
+missingRowNumbers = list(range(768))
 
-# rowNumbers.remove(1)
-# rowNumbers.remove(5)
-# print(rowNumbers)
+# missingRowNumbers.remove(1)
+# missingRowNumbers.remove(5)
+# print(missingRowNumbers)
 
 rows = dict()
 rws = []
 
-while ser.in_waiting < 2200:
-	ser.write(b'ok')
-	time.sleep(0.4)
+# while ser.in_waiting < 70000:
+# 	ser.write(b'ok')
+# 	time.sleep(4)
+	# print(ser.read(4094))
+	# print(ser.in_waiting)
+
+ser.write(b'ok')
+time.sleep(1.5)
 
 
+print("pic collected")
 
 while ser.in_waiting != 0:
 	line = ser.readline()
-	line = line.strip().decode('latin')
+	line = line[:-2]
 
-	try:
-		indexes, data = line.split('|')
-	except:
+	# lineValidityCheck = re.match("\d\d\d,\d\d\d\|", line)
+
+	# if lineValidityCheck == None:
+	# 	print("invalid line detected: ", end="")
+	# 	print(line)
+	# 	continue		
+
+	if len(line) < 40:
 		continue
+
+
+	if not (line[3] == 44 and line[7] == 124):
+		print("invalid line detected: ", end="")
+		print(line)
+		continue
+
+
+	data = line[8:]
+	# actually first index is not needed in that mode
+	indexes = line[:7].decode('latin')
+
+	if len(data) != 100:
+		continue
+
+
 	imgIdx, imgRowIdx = indexes.split(',')
 
-	rowNumbers.remove(int(imgRowIdx))
+	try:
+		imgRowIdx = int(imgRowIdx)
+	except:
+		continue
+
+
+	try:
+		missingRowNumbers.remove(imgRowIdx)
+	except:
+		print("cannot remove number: ", end = "")
+		print(imgRowIdx)
 
 	# row = ImgRow(imgIdx, imgRowIdx, data)
 
 	# print(len(data), end = ' ')
 	# print(row)
 
-	rows[int(imgRowIdx)] = data
+	rows[imgRowIdx] = data
 
-	# for r in rows:
-	# 	print(r)
+print(missingRowNumbers)
 
-
-# for r in rows:
-# 	print(id(r))
-# 	print(r)
+# for l in rows:
+# 	print(l, end='. ')
+# 	print(rows[l])
 
 
-for l in rows:
-	print(l, end='. ')
-	print(rows[l])
+for n in missingRowNumbers:
+	print(n, end = ' is missing, retry')
+	row = getRowFromMcu(n)
 
+	while len(row) != 100:
+		print("recollecting row {}".format(n))
+		row = getRowFromMcu(n)
 
-for n in rowNumbers:
-	print(n, end = ' ')
-	ser.write(bytes(str(n), 'utf-8'))
-	time.sleep(0.1)
-	row = ser.readline().decode('latin').strip()
 	rows[int(n)] = row
 
 
-print()
+result = bytearray()
 
 for l in collections.OrderedDict(sorted(rows.items())):
-	print(l, end='. ')
-	print(rows[l])
+	result += rows[l]
+	# print(l, end='. ')
+	# print(len(rows[l]))
+	# print(rows[l])
+
+print(len(result))
+
+makeGrayImg(result)
+
+
+time.sleep(5)
 
 
 
