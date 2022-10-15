@@ -23,6 +23,8 @@ uint8_t imgIdx;
 uint16_t rowId ;
 camera_fb_t *fb;
 bool rowValidFlag;
+sensor_t * s;
+camera_config_t config;
 
 void setup() {
 //  disableWiFi();
@@ -31,7 +33,7 @@ void setup() {
   Serial.setDebugOutput(true);
   Serial.println();
 
-  camera_config_t config;
+  
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
   config.pin_d0 = Y2_GPIO_NUM;
@@ -64,16 +66,16 @@ void setup() {
     return;
   }
 
-  sensor_t * s = esp_camera_sensor_get();
+  s = esp_camera_sensor_get();
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
     s->set_vflip(s, 1); // flip it back
-    s->set_brightness(s, 1); // up the brightness just a bit
+    s->set_brightness(s, 0); // up the brightness just a bit
     s->set_saturation(s, -2); // lower the saturation
   }
   
   // drop down frame size for higher initial frame rate
-//  s->set_framesize(s, FRAMESIZE_QQVGA);
+//  s->set_framesize(s, FRAMESIZE_QVGA);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
@@ -81,25 +83,25 @@ void setup() {
 #endif
 
   
-  fb = esp_camera_fb_get();
-
-  data = (char *)fb->buf;
-  imgSize = fb->len;
-
-  for(int i =0 ; i <imgSize; i++){
-    if(*data<16)
-      Serial.print(0);
-      
-    Serial.print(*data++, HEX);
-
-    if(i%DATA_BYTES == 0)
-      Serial.println();
-  }
-
-  Serial.println("init image size: ");
-  Serial.println(imgSize);
-
-  esp_camera_fb_return(fb);
+//  fb = esp_camera_fb_get();
+//
+//  data = (char *)fb->buf;
+//  imgSize = fb->len;
+//
+//  for(int i =0 ; i <imgSize; i++){
+//    if(*data<16)
+//      Serial.print(0);
+//      
+//    Serial.print(*data++, HEX);
+//
+//    if(i%DATA_BYTES == 0)
+//      Serial.println();
+//  }
+//
+//  Serial.println("init image size: ");
+//  Serial.println(imgSize);
+//
+//  esp_camera_fb_return(fb);
 
   imgIdx =0;
   rowValidFlag = false;
@@ -124,7 +126,7 @@ void loop() {
   resendDataUntilImageValid();
   
   imgIdx++;
-  Serial.println();
+  Serial.println(millis() - start);
 
   esp_camera_fb_return(fb);
 }// end main loop
@@ -146,6 +148,7 @@ void sendImg(uint32_t imgSize){
 }
 
 void printImageIndexes(){
+  //remove imgIdx
   if(imgIdx < 10)
       Serial.print("00");
     if(imgIdx > 9 && imgIdx < 100)
@@ -154,25 +157,29 @@ void printImageIndexes(){
     Serial.print(',');
 
     if(rowId < 10)
-      Serial.print("00");
+      Serial.print("000");
     else if (rowId > 9 && rowId < 100)
+      Serial.print("00");
+    else if (rowId > 99 && rowId < 1000)
       Serial.print("0");
     Serial.print(rowId++);
+    
     Serial.print("|");
 }
 
 void resendDataUntilImageValid(){
   while(!rowValidFlag){
     while (Serial.available() > 0) {
-      String strRowNumber = Serial.readStringUntil('\n');
-      strRowNumber.trim();
+      String command = Serial.readStringUntil('\n');
+      command.trim();
 
-      if(strRowNumber == "ok"){
+      if(command == "ok"){
         rowValidFlag = true;
-      }
-      else {
+      } else if ( command.length() > 5){
+        configureCam(command);
+      } else {
         data = (char *)fb->buf;
-        uint16_t intRowNumber = strRowNumber.toInt();
+        uint16_t intRowNumber = command.toInt();
         data += intRowNumber * 100;
         
         for(uint8_t i = 0; i <100; i++){
@@ -182,8 +189,40 @@ void resendDataUntilImageValid(){
         Serial.println();
       }
     }
+    
   }
+  
   rowValidFlag = false;
+}
+
+void configureCam(String command){
+  if(command == "res_qqvga"){
+      s->set_framesize(s, FRAMESIZE_QQVGA);
+      Serial.println("changing resolution to QQVGA[120x160]");
+  } else  if(command == "res_qvga"){
+      esp_camera_fb_return(fb);
+      s->set_framesize(s, FRAMESIZE_QVGA);
+      
+
+      Serial.println("changing resolution to QVGA[240x320]");
+  } else if(command == "res_hvga"){
+      config.frame_size = FRAMESIZE_HVGA;
+      esp_err_t err = esp_camera_init(&config);
+  } else if(command == "res_vga"){
+      s->set_framesize(s, FRAMESIZE_VGA);
+  }
+
+  else if(command == "format_jpeg"){
+     s->set_pixformat(s, PIXFORMAT_JPEG);
+  } else if(command ==  "format_grayscale"){
+      s->set_pixformat(s, PIXFORMAT_GRAYSCALE);
+  }
+
+
+      
+   else{
+      Serial.println("Command unknown");
+   }
 }
 
 //void disableWiFi(){
