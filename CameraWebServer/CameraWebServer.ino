@@ -5,6 +5,7 @@
 
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define DATA_BYTES 30
+#define ROW_LENGTH 200
 
 #include "camera_pins.h"
 
@@ -25,6 +26,7 @@ camera_fb_t *fb;
 bool rowValidFlag;
 sensor_t * s;
 camera_config_t config;
+uint8_t brightness;
 
 void setup() {
 //  disableWiFi();
@@ -67,10 +69,12 @@ void setup() {
   }
 
   s = esp_camera_sensor_get();
+  brightness = 0;
+  
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
     s->set_vflip(s, 1); // flip it back
-    s->set_brightness(s, 0); // up the brightness just a bit
+    s->set_brightness(s, 2); // up the brightness just a bit
     s->set_saturation(s, -2); // lower the saturation
   }
   
@@ -80,6 +84,7 @@ void setup() {
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
+  s->set_brightness(s, 0);
 #endif
 
   
@@ -126,6 +131,7 @@ void loop() {
   resendDataUntilImageValid();
   
   imgIdx++;
+  Serial.print("Image in: ");
   Serial.println(millis() - start);
 
   esp_camera_fb_return(fb);
@@ -135,7 +141,7 @@ void sendImg(uint32_t imgSize){
     while(imgSize){
       printImageIndexes();
     
-      for(uint8_t i = 0; i <100; i++){
+      for(uint8_t i = 0; i <ROW_LENGTH; i++){
         char pixel = *data++;
         if(pixel == 10 || pixel == 13)
           pixel = 11;
@@ -180,9 +186,9 @@ void resendDataUntilImageValid(){
       } else {
         data = (char *)fb->buf;
         uint16_t intRowNumber = command.toInt();
-        data += intRowNumber * 100;
+        data += intRowNumber * ROW_LENGTH;
         
-        for(uint8_t i = 0; i <100; i++){
+        for(uint8_t i = 0; i <ROW_LENGTH; i++){
           Serial.write(*data++);
         }
 
@@ -216,6 +222,11 @@ void configureCam(String command){
      s->set_pixformat(s, PIXFORMAT_JPEG);
   } else if(command ==  "format_grayscale"){
       s->set_pixformat(s, PIXFORMAT_GRAYSCALE);
+  }
+
+  else if(command == "bright+"){
+    if(brightness < 2)
+      s->set_brightness(s, ++brightness);
   }
 
 
