@@ -9,8 +9,8 @@ import collections
 import re
 
 
-IMG_WIDTH = 160*2
-IMG_HEIGHT = 120*2
+IMG_WIDTH = 160
+IMG_HEIGHT = 120
 # IMG_ROWS = 3072
 # IMG_ROWS = 1536
 COMA_POSITION = 3
@@ -100,10 +100,11 @@ def changeCamResolution(resolution):
 # add command controll to camera - resolution, color, brightness etc
 
 print(IMG_ROWS)
-ser = serial.Serial('COM3', 1000000, timeout=0.01 )#, parity=serial.PARITY_EVEN, rtscts=1)
-ser.set_buffer_size(rx_size = IMG_ROWS*110, tx_size = 256)
+ser = serial.Serial('COM3', 1000000 )#, parity=serial.PARITY_EVEN, rtscts=1)
+ser.set_buffer_size(rx_size = IMG_ROWS * BARE_LINE_LENGTH_NO_NL_CHRS , tx_size = 2560)
 
 ser.reset_input_buffer()
+lastState = [0 for i in range(100)]
 
 # changeCamResolution("qvga")
 
@@ -153,6 +154,7 @@ while True:
 
 		rows[imgRowIdx] = data
 
+
 	# if len(missingRowNumbers) > 500 :
 	# 	print("image too bad[{}], retry".format(len(missingRowNumbers)))
 	# 	continue
@@ -173,12 +175,12 @@ while True:
 		continue
 
 	match IMG_ROWS:
-		case 192:
-			print("qqvga")
-			makeGrayImg(result,120,160)
+		case 96:
+			print("show qqvga img")
+			lastState = makeGrayImg(result,120,160, lastState)
 		# case 768:
 		case 384:
-			print("qvga")
+			print("show qvga img")
 			makeGrayImg(result,240,320)
 		case 1536:
 			print("vga")

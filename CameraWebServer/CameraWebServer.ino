@@ -3,10 +3,11 @@
 //#include <WiFi.h>
 #include "driver/adc.h"
 
-#define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define DATA_BYTES 30
 #define ROW_LENGTH 200
+#define CAMERA_MODEL_AI_THINKER // Has PSRAM
 
+//#include "ESP32Camera.h"
 #include "camera_pins.h"
 
 /*    pinout for SPI nrf24 connection
@@ -27,6 +28,7 @@ bool rowValidFlag;
 sensor_t * s;
 camera_config_t config;
 uint8_t brightness;
+//ESP32Camera camera;
 
 void setup() {
 //  disableWiFi();
@@ -57,7 +59,7 @@ void setup() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
 
-  config.frame_size = FRAMESIZE_QVGA;
+  config.frame_size = FRAMESIZE_QQVGA;
   config.jpeg_quality = 30;
   config.fb_count = 1;
 
@@ -86,27 +88,6 @@ void setup() {
   s->set_hmirror(s, 1);
   s->set_brightness(s, 0);
 #endif
-
-  
-//  fb = esp_camera_fb_get();
-//
-//  data = (char *)fb->buf;
-//  imgSize = fb->len;
-//
-//  for(int i =0 ; i <imgSize; i++){
-//    if(*data<16)
-//      Serial.print(0);
-//      
-//    Serial.print(*data++, HEX);
-//
-//    if(i%DATA_BYTES == 0)
-//      Serial.println();
-//  }
-//
-//  Serial.println("init image size: ");
-//  Serial.println(imgSize);
-//
-//  esp_camera_fb_return(fb);
 
   imgIdx =0;
   rowValidFlag = false;
@@ -140,6 +121,9 @@ void loop() {
 void sendImg(uint32_t imgSize){
     while(imgSize){
       printImageIndexes();
+
+      if(imgSize%2000==0)
+        delay(30);
     
       for(uint8_t i = 0; i <ROW_LENGTH; i++){
         char pixel = *data++;
@@ -183,6 +167,7 @@ void resendDataUntilImageValid(){
         rowValidFlag = true;
       } else if ( command.length() > 5){
         configureCam(command);
+//        rowValidFlag = true;// limits changes to once per pic
       } else {
         data = (char *)fb->buf;
         uint16_t intRowNumber = command.toInt();
@@ -194,14 +179,15 @@ void resendDataUntilImageValid(){
 
         Serial.println();
       }
-    }
+    }//while serial in buff
     
-  }
+  }// while flag
+  Serial.println("Img accepted");
   
   rowValidFlag = false;
 }
 
-void configureCam(String command){
+void configureCam(String command){  
   if(command == "res_qqvga"){
       s->set_framesize(s, FRAMESIZE_QQVGA);
       Serial.println("changing resolution to QQVGA[120x160]");
@@ -219,19 +205,78 @@ void configureCam(String command){
   }
 
   else if(command == "format_jpeg"){
-     s->set_pixformat(s, PIXFORMAT_JPEG);
+    esp_camera_deinit();
+//    camera.begin(FRAMESIZE_QVGA, PIXFORMAT_JPEG);
+
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer = LEDC_TIMER_0;
+    config.pin_d0 = Y2_GPIO_NUM;
+    config.pin_d1 = Y3_GPIO_NUM;
+    config.pin_d2 = Y4_GPIO_NUM;
+    config.pin_d3 = Y5_GPIO_NUM;
+    config.pin_d4 = Y6_GPIO_NUM;
+    config.pin_d5 = Y7_GPIO_NUM;
+    config.pin_d6 = Y8_GPIO_NUM;
+    config.pin_d7 = Y9_GPIO_NUM;
+    config.pin_xclk = XCLK_GPIO_NUM;
+    config.pin_pclk = PCLK_GPIO_NUM;
+    config.pin_vsync = VSYNC_GPIO_NUM;
+    config.pin_href = HREF_GPIO_NUM;
+    config.pin_sscb_sda = SIOD_GPIO_NUM;
+    config.pin_sscb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn = PWDN_GPIO_NUM;
+    config.pin_reset = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_JPEG; //
+  
+    config.frame_size = FRAMESIZE_QQVGA;
+    config.jpeg_quality = 30;
+    config.fb_count = 1;
+  
+    // camera init
+    esp_err_t err = esp_camera_init(&config);
+    
+    Serial.println("Started camera in QQVGA JPEG format");
   } else if(command ==  "format_grayscale"){
-      s->set_pixformat(s, PIXFORMAT_GRAYSCALE);
+    esp_camera_deinit();
+    
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer = LEDC_TIMER_0;
+    config.pin_d0 = Y2_GPIO_NUM;
+    config.pin_d1 = Y3_GPIO_NUM;
+    config.pin_d2 = Y4_GPIO_NUM;
+    config.pin_d3 = Y5_GPIO_NUM;
+    config.pin_d4 = Y6_GPIO_NUM;
+    config.pin_d5 = Y7_GPIO_NUM;
+    config.pin_d6 = Y8_GPIO_NUM;
+    config.pin_d7 = Y9_GPIO_NUM;
+    config.pin_xclk = XCLK_GPIO_NUM;
+    config.pin_pclk = PCLK_GPIO_NUM;
+    config.pin_vsync = VSYNC_GPIO_NUM;
+    config.pin_href = HREF_GPIO_NUM;
+    config.pin_sscb_sda = SIOD_GPIO_NUM;
+    config.pin_sscb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn = PWDN_GPIO_NUM;
+    config.pin_reset = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
+  
+    config.frame_size = FRAMESIZE_QQVGA;
+    config.jpeg_quality = 30;
+    config.fb_count = 1;
+  
+    // camera init
+    esp_err_t err = esp_camera_init(&config);
+    
+    Serial.println("Started camera in QQVGA GRAY format");
   }
 
   else if(command == "bright+"){
     if(brightness < 2)
       s->set_brightness(s, ++brightness);
   }
-
-
-      
-   else{
+  
+  else{
       Serial.println("Command unknown");
    }
 }

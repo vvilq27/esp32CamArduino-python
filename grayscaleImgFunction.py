@@ -5,7 +5,10 @@ import datetime
 from imgUtility import displayImg, resizeImage
 from motionDetector import detectChange
 
-def makeGrayImg(data, height, width):
+def makeGrayImg(data, height, width, lastState):
+	# if 'lastState' not in locals():
+	# 	lastState = [0 for i in range(100)]
+	# 	print("initialize last state variable")
 
 	flatNumpyArray = numpy.array(data)
 
@@ -15,12 +18,22 @@ def makeGrayImg(data, height, width):
 
 	grayResized = resizeImage(grayImage, 3)
 
-	detectChange(grayResized)
+	# for block in grayImage:
+	# 	print(block)
 
-	name = '151022/' + datetime.datetime.now().strftime("%H:%M:%S").replace(":","_") +".png"
+	currentState = detectChange(grayImage)
+
+	for i, val in enumerate(currentState):
+		change = abs(val-lastState[i])
+		print(str(val) + " " + str(lastState[i]) + " " + str(change))
+
+
+	name = '150123/' + datetime.datetime.now().strftime("%H:%M:%S").replace(":","_") +".png"
 	# cv2.imwrite(name, grayResized)
 
 	displayImg(grayResized)
+
+	return currentState
 
 
 # print(type(int(hexDataList[0],16)))
