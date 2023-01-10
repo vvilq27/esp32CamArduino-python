@@ -29,8 +29,10 @@ def makeGrayImg(data, height, width, lastState):
 		print("MOVEMENT!")
 
 	# name = '150123/' + datetime.datetime.now().strftime("%H:%M:%S").replace(":","_") +".png"
+
 	# cv2.imwrite(name, grayResized)
 
 	displayImg(grayResized)
+
 
 	return currentState

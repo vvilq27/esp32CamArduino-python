@@ -1,6 +1,9 @@
 #include "esp_camera.h"
 #include <SPI.h>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 91cbe9fe7fdf9638e40fa65d0cbafc4a2f22170c
 //#include <WiFi.h>
 #include "driver/adc.h"
 
@@ -286,4 +289,8 @@ void configureCam(String command){
 //    adc_power_off();
 //    WiFi.disconnect(true);  // Disconnect from the network
 //    WiFi.mode(WIFI_OFF);    // Switch WiFi off
+<<<<<<< HEAD
 //}
+=======
+//}
+>>>>>>> 91cbe9fe7fdf9638e40fa65d0cbafc4a2f22170c
