@@ -73,24 +73,6 @@ def collectMissingRows(missingRowNumbers):
 
 		rows[int(rowNumber)] = row
 
-def changeCamResolution(resolution):
-	match resolution:
-		case "qqvga":
-			ser.write(b'res_qqvga')
-		case "qvga":
-			ser.write(b'res_qvga')
-		case "hvga":
-			ser.write(b'res_hvga')
-		case "vga":
-			ser.write(b'res_vga')
-
-		case defualt:
-			print("resolution {} unknown".format(resolution))
-	
-
-
-	time.sleep(0.5)
-
 # ==============================================
 # ==============================================
 # ==============================================
@@ -103,9 +85,6 @@ ser = serial.Serial('COM3', 1000000 )#, parity=serial.PARITY_EVEN, rtscts=1)
 ser.set_buffer_size(rx_size = IMG_ROWS * BARE_LINE_LENGTH_NO_NL_CHRS , tx_size = 2560)
 
 ser.reset_input_buffer()
-lastState = [0 for i in range(100)]
-
-# changeCamResolution("qvga")
 
 while True:
 	missingRowNumbers = list(range(IMG_ROWS))
@@ -160,11 +139,6 @@ while True:
 
 		rows[imgRowIdx] = data
 
-
-	# if len(missingRowNumbers) > 500 :
-	# 	print("image too bad[{}], retry".format(len(missingRowNumbers)))
-	# 	continue
-
 	collectMissingRows(missingRowNumbers)
 
 	imageData = bytearray()
@@ -179,7 +153,7 @@ while True:
 	match IMG_ROWS:
 		case 96:
 			print("show qqvga img")
-			lastState = makeGrayImg(imageData,120,160, lastState)
+			makeGrayImg(imageData,120,160)
 		# case 768:
 		case 384:
 			print("show qvga img")
@@ -187,7 +161,6 @@ while True:
 		case 1536:
 			print("vga")
 			makeGrayImg(imageData,320,480)
-		# makeGrayImg(imageData,480,640)
 
 		case _:
 			print("invalid image type : {}".format(IMG_ROWS))
