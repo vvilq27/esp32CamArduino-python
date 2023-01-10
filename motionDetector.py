@@ -1,29 +1,40 @@
 import cv2
-import numpy
+import numpy as np
 import datetime
 
 previousState = []
 
 def detectChange(data):
-	# for i in range(24):
-	# 	row = []
-	# 	for k in range(32):
-	# 		row.append(data[i][k])
-
-	# for r in data:
-	# 	print(r)
-
-	# print()
-	# print()
-
 	result = []
 
-	for i in range(10):
-		for k in range(10):
-			chunk = data[0+i*24:24+i*24, 0+k*32:32+k*32]
+	blocks = [[[] for g in range(10)] for k in range (10)]
 
-			# print(chunk)
-			chunkSum = sum(sum(chunk))
-			result.append(chunkSum)
-	
-	print(result)
+	for i in range(len(data)):
+		for k in range(10): 			
+			blocks[int(i/12)][k].append(data[i][0+16*k:16+16*k])
+			
+	# print(
+	# 	sum(
+	# 		list(
+	# 			map(
+	# 				lambda x: int(x), 
+	# 				np.concatenate(blocks[0][0]) 
+	# 			)
+	# 		)
+	# 	)
+	# )
+
+
+	for i, row in enumerate(blocks):
+		for imgPart in row:
+			imgPartSum = sum(
+							list(
+								map(
+									lambda x: int(x), 
+									np.concatenate(imgPart) 
+								)
+							)
+						)
+			result.append(imgPartSum)
+
+	return result

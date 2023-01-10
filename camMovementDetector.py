@@ -9,8 +9,8 @@ import collections
 import re
 
 
-IMG_WIDTH = 160*2
-IMG_HEIGHT = 120*2
+IMG_WIDTH = 160
+IMG_HEIGHT = 120
 # IMG_ROWS = 3072
 # IMG_ROWS = 1536
 COMA_POSITION = 3
@@ -32,8 +32,7 @@ class ImgRow:
 
 def validateLine(line):
 	if not (line[COMA_POSITION] == 44 and line[PIPE_POSITION] == 124):
-		# print("invalid line detected: ")
-		print(line, end="\r")
+		print("invalid line detected: " + str(line))
 		
 		return False
 	else:
@@ -49,7 +48,7 @@ def getRowFromMcu(rowNumber):
 	while ser.in_waiting != LINE_DATA_LENGTH_NO_NL_CHRS + 2:
 		ser.reset_input_buffer()
 		delay += 0.01
-		print("getRowFromMcu | delay increased to {}".format(delay), end='\r')
+		# print("getRowFromMcu | delay increased to {}".format(delay))
 
 		ser.write(bytes(str(rowNumber), 'utf-8'))
 		time.sleep(delay)
@@ -101,9 +100,10 @@ def changeCamResolution(resolution):
 
 print(IMG_ROWS)
 ser = serial.Serial('COM3', 1000000, timeout=0.01 )#, parity=serial.PARITY_EVEN, rtscts=1)
-ser.set_buffer_size(rx_size = IMG_ROWS*110, tx_size = 256)
+ser.set_buffer_size(rx_size = IMG_ROWS * BARE_LINE_LENGTH_NO_NL_CHRS , tx_size = 2560)
 
 ser.reset_input_buffer()
+lastState = [0 for i in range(100)]
 
 # changeCamResolution("qvga")
 
@@ -114,9 +114,17 @@ while True:
 	rws = []
 
 	ser.write(b'ok')
-	time.sleep(1)
-	print(ser.in_waiting)
-	print("pic collected")
+	time.sleep(0.2)
+	bytesInBuff = 0;
+
+	# print(ser.in_waiting)
+
+	# while ser.in_waiting != bytesInBuff:
+	# 	bytesInBuff = ser.in_waiting
+	# 	time.sleep(0.01)
+
+	
+	# print("received bytes in buff: " + str(ser.in_waiting))
 
 	while ser.in_waiting != 0:
 		line = ser.readline()
@@ -142,14 +150,13 @@ while True:
 			imgIdx, imgRowIdx = indexes.split(',')
 			imgRowIdx = int(imgRowIdx)
 		except:
-			print(indexes, end = '\r')
+			print("cannot split this line: " + str(indexes))
 			continue
 
 		try:
 			missingRowNumbers.remove(imgRowIdx)
 		except:
-			print("cannot remove number: ", end = " ")
-			print(imgRowIdx, end='\r')
+			print("cannot remove number:" + str(imgRowIdx))
 
 		rows[imgRowIdx] = data
 
@@ -157,33 +164,29 @@ while True:
 	# 	print("image too bad[{}], retry".format(len(missingRowNumbers)))
 	# 	continue
 
-	print("missed rows: ")
-	print(missingRowNumbers)
-
 	collectMissingRows(missingRowNumbers)
 
-	result = bytearray()
+	imageData = bytearray()
 
 	for l in collections.OrderedDict(sorted(rows.items())):
-		result += rows[l]
+		imageData += rows[l]
 
-	if len(result) != IMG_ROWS * LINE_DATA_LENGTH_NO_NL_CHRS:
-		print("len result: ", end =" ")
-		print(len(result))
+	if len(imageData) != IMG_ROWS * LINE_DATA_LENGTH_NO_NL_CHRS:
+		print("len imageData: " + str(len(imageData)))
 		continue
 
 	match IMG_ROWS:
-		case 192:
-			print("qqvga")
-			makeGrayImg(result,120,160)
+		case 96:
+			print("show qqvga img")
+			lastState = makeGrayImg(imageData,120,160, lastState)
 		# case 768:
 		case 384:
-			print("qvga")
-			makeGrayImg(result,240,320)
+			print("show qvga img")
+			makeGrayImg(imageData,240,320)
 		case 1536:
 			print("vga")
-			makeGrayImg(result,320,480)
-		# makeGrayImg(result,480,640)
+			makeGrayImg(imageData,320,480)
+		# makeGrayImg(imageData,480,640)
 
 		case _:
 			print("invalid image type : {}".format(IMG_ROWS))
