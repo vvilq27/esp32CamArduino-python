@@ -1,11 +1,15 @@
 #include "esp_camera.h"
 #include <SPI.h>
-//#include <WiFi.h>
 #include "driver/adc.h"
+#include "FS.h"                // SD Card ESP32
+#include "SD_MMC.h"            // SD Card ESP32
+#include <EEPROM.h>            // read and write from flash memory
+#include "driver/rtc_io.h"
 
 #define DATA_BYTES 30
 #define ROW_LENGTH 200
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
+#define EEPROM_SIZE 1
 
 //#include "ESP32Camera.h"
 #include "camera_pins.h"
@@ -29,6 +33,7 @@ sensor_t * s;
 camera_config_t config;
 uint8_t brightness;
 //ESP32Camera camera;
+int pictureNumber = 0;
 
 void setup() {
 //  disableWiFi();
@@ -79,15 +84,64 @@ void setup() {
     s->set_brightness(s, 2); // up the brightness just a bit
     s->set_saturation(s, -2); // lower the saturation
   }
-  
-  // drop down frame size for higher initial frame rate
-//  s->set_framesize(s, FRAMESIZE_QVGA);
 
-#if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
-  s->set_vflip(s, 1);
-  s->set_hmirror(s, 1);
-  s->set_brightness(s, 0);
-#endif
+  #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
+    s->set_vflip(s, 1);
+    s->set_hmirror(s, 1);
+    s->set_brightness(s, 0);
+  #endif
+
+  camera_fb_t * fb = NULL;
+  
+  // Take Picture with Camera
+  fb = esp_camera_fb_get();  
+  if(!fb) {
+    Serial.println("Camera capture failed");
+    return;
+  }
+  // initialize EEPROM with predefined size
+  EEPROM.begin(EEPROM_SIZE);
+  pictureNumber = EEPROM.read(0) + 1;
+
+  // Path where new picture will be saved in SD Card
+  String path = "/pic" +String(pictureNumber) +".txt";
+
+  //Serial.println("Starting SD Card");
+  if(!SD_MMC.begin()){
+    Serial.println("SD Card Mount Failed");
+  }
+  
+  uint8_t cardType = SD_MMC.cardType();
+  if(cardType == CARD_NONE){
+    Serial.println("No SD Card attached");
+  }
+
+  fs::FS &fs = SD_MMC; 
+
+  File file = fs.open(path.c_str(), FILE_WRITE);
+  
+  if(!file){
+    Serial.println("Failed to open file in writing mode");
+  } 
+  else {
+    file.write(fb->buf, fb->len); // payload (image), payload length
+    Serial.printf("Saved file to path: %s\n", path.c_str());
+    EEPROM.write(0, pictureNumber);
+    EEPROM.commit();
+  }
+  file.close();
+  
+  esp_camera_fb_return(fb);
+
+  // Turns off the ESP32-CAM white on-board LED (flash) connected to GPIO 4 to limit current
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+  rtc_gpio_hold_en(GPIO_NUM_4);
+
+  Serial.println("sleeeeep");
+
+  esp_sleep_enable_timer_wakeup(5000000);
+  esp_deep_sleep_start();
 
   imgIdx =0;
   rowValidFlag = false;
@@ -95,6 +149,7 @@ void setup() {
 
 
 void loop() {
+  /*
   long start = millis();
 
   fb = esp_camera_fb_get();
@@ -116,6 +171,9 @@ void loop() {
   Serial.println(millis() - start);
 
   esp_camera_fb_return(fb);
+  */
+  Serial.println("test");
+  delay(1000);
 }// end main loop
 
 void sendImg(uint32_t imgSize){
