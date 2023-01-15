@@ -11,6 +11,19 @@
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define EEPROM_SIZE 1
 
+#define IMAGE_HEIGHT (unsigned int)120
+#define IMAGE_WIDTH (unsigned int)160
+#define IMAGE_MODE CAMERA_GRAYSCALE
+#define BITS_PER_PIXEL (unsigned int)8
+#define PALETTE_COLORS_AMOUNT (unsigned int) 256 
+#define PALETTE_SIZE  (unsigned int)(PALETTE_COLORS_AMOUNT * 4) // 4 bytes = 32bit per color (3 bytes RGB and 1 byte 0x00)
+#define IMAGE_PATH "/image.bmp"
+
+// Headers info
+#define BITMAP_FILE_HEADER_SIZE (unsigned int)14 // For storing general information about the bitmap image file
+#define DIB_HEADER_SIZE (unsigned int)40 // For storing information about the image and define the pixel format
+#define HEADER_SIZE (BITMAP_FILE_HEADER_SIZE + DIB_HEADER_SIZE)
+
 //#include "ESP32Camera.h"
 #include "camera_pins.h"
 
@@ -24,15 +37,9 @@
 
 char *data;
 uint32_t imgSize;
-uint8_t packetCount;
-uint8_t imgIdx;
-uint16_t rowId ;
 camera_fb_t *fb;
-bool rowValidFlag;
 sensor_t * s;
 camera_config_t config;
-uint8_t brightness;
-//ESP32Camera camera;
 int pictureNumber = 0;
 
 void setup() {
@@ -76,7 +83,6 @@ void setup() {
   }
 
   s = esp_camera_sensor_get();
-  brightness = 0;
   
   // initial sensors are flipped vertically and colors are a bit saturated
   if (s->id.PID == OV3660_PID) {
@@ -104,32 +110,13 @@ void setup() {
   pictureNumber = EEPROM.read(0) + 1;
 
   // Path where new picture will be saved in SD Card
-  String path = "/pic" +String(pictureNumber) +".txt";
+  String path = "/pic" +String(pictureNumber) +".bmp";
 
-  //Serial.println("Starting SD Card");
-  if(!SD_MMC.begin()){
-    Serial.println("SD Card Mount Failed");
-  }
-  
-  uint8_t cardType = SD_MMC.cardType();
-  if(cardType == CARD_NONE){
-    Serial.println("No SD Card attached");
-  }
-
-  fs::FS &fs = SD_MMC; 
-
-  File file = fs.open(path.c_str(), FILE_WRITE);
-  
-  if(!file){
-    Serial.println("Failed to open file in writing mode");
-  } 
-  else {
-    file.write(fb->buf, fb->len); // payload (image), payload length
-    Serial.printf("Saved file to path: %s\n", path.c_str());
-    EEPROM.write(0, pictureNumber);
-    EEPROM.commit();
-  }
-  file.close();
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+  rtc_gpio_hold_dis(GPIO_NUM_4);
+ 
+  saveImage(fb, path.c_str());
   
   esp_camera_fb_return(fb);
 
@@ -138,13 +125,10 @@ void setup() {
   digitalWrite(4, LOW);
   rtc_gpio_hold_en(GPIO_NUM_4);
 
-  Serial.println("sleeeeep");
-
   esp_sleep_enable_timer_wakeup(5000000);
   esp_deep_sleep_start();
 
-  imgIdx =0;
-  rowValidFlag = false;
+  Serial.println("this should never print");
 } 
 
 
@@ -172,10 +156,8 @@ void loop() {
 
   esp_camera_fb_return(fb);
   */
-  Serial.println("test");
-  delay(1000);
 }// end main loop
-
+/*
 void sendImg(uint32_t imgSize){
     while(imgSize){
       printImageIndexes();
@@ -338,6 +320,105 @@ void configureCam(String command){
       Serial.println("Command unknown");
    }
 }
+*/
+
+//
+//
+//    GRAYSCALE IMG SD SAVE
+//
+//
+
+// Set the headers data
+void setFileHeaders(unsigned char *bitmapFileHeader, unsigned char *bitmapDIBHeader, int fileSize){
+    // Set the headers to 0
+    memset(bitmapFileHeader, (unsigned char)(0), BITMAP_FILE_HEADER_SIZE);
+    memset(bitmapDIBHeader, (unsigned char)(0), DIB_HEADER_SIZE);
+
+    // File header
+    bitmapFileHeader[0] = 'B';
+    bitmapFileHeader[1] = 'M';
+    bitmapFileHeader[2] = (unsigned char)(fileSize);
+    bitmapFileHeader[3] = (unsigned char)(fileSize >> 8);
+    bitmapFileHeader[4] = (unsigned char)(fileSize >> 16);
+    bitmapFileHeader[5] = (unsigned char)(fileSize >> 24);
+    bitmapFileHeader[10] = (unsigned char)HEADER_SIZE + PALETTE_SIZE;
+
+    // Info header
+    bitmapDIBHeader[0] = (unsigned char)(DIB_HEADER_SIZE);
+    bitmapDIBHeader[4] = (unsigned char)(IMAGE_WIDTH);
+    bitmapDIBHeader[5] = (unsigned char)(IMAGE_WIDTH >> 8);
+    bitmapDIBHeader[8] = (unsigned char)(IMAGE_HEIGHT);
+    bitmapDIBHeader[9] = (unsigned char)(IMAGE_HEIGHT >> 8);
+    bitmapDIBHeader[14] = (unsigned char)(BITS_PER_PIXEL);
+}
+
+void setColorMap(unsigned char *colorMap){
+    //Init the palette with zeroes
+    memset(colorMap, (unsigned char)(0), PALETTE_SIZE);
+    
+    // Gray scale color palette, 4 bytes per color (R, G, B, 0x00)
+    for (int i = 0; i < PALETTE_COLORS_AMOUNT; i++) {
+        colorMap[i * 4] = i;
+        colorMap[i * 4 + 1] = i;
+        colorMap[i * 4 + 2] = i;
+    }
+}
+
+// Save the headers and the image data into the .bmp file
+void saveImage(camera_fb_t *fb, const char* imagePath){
+    int fileSize = BITMAP_FILE_HEADER_SIZE + DIB_HEADER_SIZE + IMAGE_WIDTH * IMAGE_HEIGHT;
+    
+    // Bitmap structure (Head + DIB Head + ColorMap + binary image)
+    unsigned char bitmapFileHeader[BITMAP_FILE_HEADER_SIZE];
+    unsigned char bitmapDIBHeader[DIB_HEADER_SIZE];
+    unsigned char colorMap[PALETTE_SIZE]; // Needed for <= 8bpp grayscale bitmaps    
+
+    setFileHeaders(bitmapFileHeader, bitmapDIBHeader, fileSize);
+    setColorMap(colorMap);
+
+    //Serial.println("Starting SD Card");
+    if(!SD_MMC.begin()){
+      Serial.println("SD Card Mount Failed");
+    }
+    
+    uint8_t cardType = SD_MMC.cardType();
+    if(cardType == CARD_NONE){
+      Serial.println("No SD Card attached");
+    }
+  
+    fs::FS &fs = SD_MMC; 
+  
+    File file = fs.open(imagePath, FILE_WRITE);
+    
+    if(!file){
+      Serial.println("Failed to open file in writing mode");
+    } 
+    else {
+      file.write(bitmapFileHeader, BITMAP_FILE_HEADER_SIZE);
+      file.write(bitmapDIBHeader, DIB_HEADER_SIZE);
+      file.write(colorMap, PALETTE_SIZE);
+      file.write(fb->buf, 19200); // payload (image), payload length
+      Serial.printf("Saved file to path: %s\n", imagePath);
+      EEPROM.write(0, pictureNumber);
+      EEPROM.commit();
+    }
+    
+    file.close();
+    //release sd card
+    SD_MMC.end();
+
+//    FILE *file = fopen(imagePath, "w");
+//
+//    // Write the bitmap file
+//    fwrite(bitmapFileHeader, 1, BITMAP_FILE_HEADER_SIZE, file);
+//    fwrite(bitmapDIBHeader, 1, DIB_HEADER_SIZE, file);
+//    fwrite(colorMap, 1, PALETTE_SIZE, file);
+//    fwrite(imageData, 1, IMAGE_HEIGHT * IMAGE_WIDTH, file);
+//
+//    // Close the file stream
+//    fclose(file);
+}
+
 
 //void disableWiFi(){
 //    adc_power_off();
