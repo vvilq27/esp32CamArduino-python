@@ -30,6 +30,7 @@ sensor_t * s;
 camera_config_t config;
 uint8_t brightness;
 //ESP32Camera camera;
+uint32_t oldImageState[100] = {0};
 
 void setup() {
 //  disableWiFi();
@@ -107,17 +108,46 @@ void loop() {
   Serial.println(imgSize);
 
   rowId = 0;
-  
-  sendImg(imgSize);
+  if(motionDetection(fb)){
+    sendImg(imgSize);
 
-  resendDataUntilImageValid();
+    resendDataUntilImageValid();
+    
+    imgIdx++;
+    Serial.print("Image in: ");
+    Serial.println(millis() - start);
+  }
   
-  imgIdx++;
-  Serial.print("Image in: ");
-  Serial.println(millis() - start);
 
   esp_camera_fb_return(fb);
 }// end main loop
+
+//basically divide image to 100 (12x16) boxes, sum each box pix values and compare with previous state
+uint8_t motionDetection(camera_fb_t *fb){
+  char * data = (char *) fb->buf;
+  uint8_t imageChangesCnt = 0;
+
+  for(uint8_t box = 0; box < 100; box++){
+    //uint8_t boxArr[12*16] = {0};
+    uint32_t boxPixSum = 0;
+
+    for(uint8_t row = 0; row < 12; row++){
+      for(uint8_t pixel = 0; pixel< 16; pixel++){
+        boxPixSum += data[160*12*box/10 + box%10*16+row*160+pixel];
+      }
+    }
+
+    float floatBoxStateDiff = abs((float) boxPixSum/oldImageState[box] - 1);
+
+    uint8_t boxChanged = floatBoxStateDiff > 0.15 ? 1 : 0;
+
+    imageChangesCnt += boxChanged;
+    oldImageState[box] = boxPixSum;
+  }
+
+  return imageChangesCnt > 3 ? 1 : 0;
+
+}
 
 void sendImg(uint32_t imgSize){
     while(imgSize){
