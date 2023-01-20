@@ -47,7 +47,7 @@ int pictureNumber = 0;
 void setup() {
 //  disableWiFi();
   Serial.setTimeout(10);
-  Serial.begin(250000);
+  Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
 
@@ -176,21 +176,20 @@ uint8_t motionDetection(camera_fb_t *fb){
   char * data = (char *) fb->buf;
   uint8_t imageChangesCnt = 0;
 
-  Serial.println("changed boxes:");
   for(uint8_t box = 0; box < 100; box++){
     uint16_t boxPixSum = 0;
-    Serial.print("box num: ");
-    Serial.println(box);
 
     for(uint8_t row = 0; row < 12; row++){
       for(uint8_t pixel = 0; pixel< 16; pixel++){
-//        boxPixSum += data[160*12*(box/10) + box%10*16+row*160+pixel];
-        //print this numbers to  check each box
-        int num = 160*12*(box/10) + box%10*16+row*160+pixel;
-        Serial.print(num);
-        Serial.print("|");
+        uint16_t pixelId = 160*12*(box/10) + box%10*16 + row*160 + pixel;
+        uint8_t pixelVal = *(data + pixelId);
+        boxPixSum += pixelVal;
+        
+        if(box == 9 || box == 80){
+          Serial.print(pixelVal);
+          Serial.print(",");
+        }
       }
-      Serial.println();
     }
 //    int boxOldValue = readIntFromEEPROM(1+box*2);
 
@@ -204,13 +203,13 @@ uint8_t motionDetection(camera_fb_t *fb){
 
     uint8_t boxChanged = floatBoxStateDiff > 0.17 ? 1 : 0;
 
-    if(boxChanged){
-      Serial.print(box);
-      Serial.print(" ");
-      Serial.print(floatBoxStateDiff);
-      Serial.print("|");
-      //writeIntIntoEEPROM(1+box*2, boxPixSum);
-    }
+//    if(boxChanged){
+//      Serial.print(box);
+//      Serial.print(" ");
+//      Serial.print(floatBoxStateDiff);
+//      Serial.print("|");
+//      //writeIntIntoEEPROM(1+box*2, boxPixSum);
+//    }
 
     imageChangesCnt += boxChanged;
      
