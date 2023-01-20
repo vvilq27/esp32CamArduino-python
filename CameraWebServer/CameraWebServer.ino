@@ -102,73 +102,41 @@ void setup() {
   
 
   // initialize EEPROM with predefined size
-//  EEPROM.begin(EEPROM_SIZE);
-//  pictureNumber = EEPROM.read(0) + 1;
-
-//  pinMode(4, OUTPUT);
-//  digitalWrite(4, LOW);
-//  rtc_gpio_hold_dis(GPIO_NUM_4);
-
-
-
-//  Serial.println("main");
-//
-//  for(int i =0; i < 20; i++){
-//    Serial.print( oldImageState[i]);
-//    Serial.print(" ");
-//  }
-  
-  
-
-  // Turns off the ESP32-CAM white on-board LED (flash) connected to GPIO 4 to limit current
-//  pinMode(4, OUTPUT);
-//  digitalWrite(4, LOW);
-//  rtc_gpio_hold_en(GPIO_NUM_4);
-
-//  esp_sleep_enable_timer_wakeup(5000000);
-//  esp_deep_sleep_start();
-
-  Serial.println("this should never print");
-  pictureNumber = 0;
+  EEPROM.begin(EEPROM_SIZE);
+  pictureNumber = EEPROM.read(0) + 1;
 } 
 
 
 void loop() {
-    // Take Picture with Camera
   fb = esp_camera_fb_get();  
   if(!fb) {
     Serial.println("Camera capture failed");
     return;
   }
-  // Path where new picture will be saved in SD Card
-  String path = "/pic" +String(pictureNumber) +".bmp";
 
   if(motionDetection(fb)){
+    // Path where new picture will be saved in SD Card
+    String path = "/pic" +String(pictureNumber) +".bmp";
     saveImage(fb, path.c_str());
+    pictureNumber++;
   }
-
-  for(int i = 0; i<100; i++){
-    if(i%10==0){
-      Serial.println();
-    }
-
-    Serial.print(oldImageState[i]);
-    Serial.print(" ");
-  }
-
-  Serial.println();
 
   esp_camera_fb_return(fb);
-  pictureNumber++;
+  
+//  Turns off the ESP32-CAM white on-board LED (flash) connected to GPIO 4 to limit current
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+  rtc_gpio_hold_en(GPIO_NUM_4);
 
-  delay(3000);
+  esp_sleep_enable_timer_wakeup(2000000);
+  esp_light_sleep_start();
+
+  rtc_gpio_hold_dis(GPIO_NUM_4);
 
 }// end main loop
 
 //
-//
 //    MOTION ALGO
-//
 //
 
 //basically divide image to 100 (12x16) boxes, sum each box pix values and compare with previous state
@@ -177,45 +145,23 @@ uint8_t motionDetection(camera_fb_t *fb){
   uint8_t imageChangesCnt = 0;
 
   for(uint8_t box = 0; box < 100; box++){
-    uint16_t boxPixSum = 0;
+    uint32_t boxPixSum = 0;
 
     for(uint8_t row = 0; row < 12; row++){
       for(uint8_t pixel = 0; pixel< 16; pixel++){
-        uint16_t pixelId = 160*12*(box/10) + box%10*16 + row*160 + pixel;
-        uint8_t pixelVal = *(data + pixelId);
-        boxPixSum += pixelVal;
-        
-        if(box == 9 || box == 80){
-          Serial.print(pixelVal);
-          Serial.print(",");
-        }
+        boxPixSum += data[160*12*(box/10) + box%10*16+row*160+pixel];
       }
     }
-//    int boxOldValue = readIntFromEEPROM(1+box*2);
 
-    int boxOldValue = oldImageState[box];
-    oldImageState[box] = boxPixSum;
-          
-    float floatBoxStateDiff = abs((float) boxPixSum/boxOldValue - 1);
-
-    if(box % 9 == 0)
-      Serial.println();
-
-    uint8_t boxChanged = floatBoxStateDiff > 0.17 ? 1 : 0;
-
-//    if(boxChanged){
-//      Serial.print(box);
-//      Serial.print(" ");
-//      Serial.print(floatBoxStateDiff);
-//      Serial.print("|");
-//      //writeIntIntoEEPROM(1+box*2, boxPixSum);
-//    }
+    float floatBoxStateDiff = abs((float) boxPixSum/oldImageState[box] - 1);
+    uint8_t boxChanged = floatBoxStateDiff > 0.15 ? 1 : 0;
 
     imageChangesCnt += boxChanged;
-     
-  }// for box
+    oldImageState[box] = boxPixSum;
 
-  return imageChangesCnt > 6 ? 1 : 0;
+  }
+
+    return imageChangesCnt > 3 ? 1 : 0;
 }
 
 void writeIntIntoEEPROM(int address, int number)
@@ -234,9 +180,7 @@ int readIntFromEEPROM(int address)
 }
 
 //
-//
 //    GRAYSCALE BMP IMG SD SAVE
-//
 //
 
 // Set the headers data
@@ -310,8 +254,8 @@ void saveImage(camera_fb_t *fb, const char* imagePath){
       file.write(colorMap, PALETTE_SIZE);
       file.write(fb->buf, 19200); // payload (image), payload length
       Serial.printf("Saved file to path: %s\n", imagePath);
-//      EEPROM.write(0, pictureNumber);
-//      EEPROM.commit();
+      EEPROM.write(0, pictureNumber);
+      EEPROM.commit();
     }
     
     file.close();
