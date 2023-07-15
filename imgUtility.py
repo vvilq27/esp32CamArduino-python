@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import imutils
 
 def makeImg(imgBts):
 	img = cv2.imdecode(np.frombuffer(imgBts, np.uint8), -1)

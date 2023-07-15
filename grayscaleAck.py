@@ -81,7 +81,7 @@ def collectMissingRows(missingRowNumbers):
 # add command controll to camera - resolution, color, brightness etc
 
 print(IMG_ROWS)
-ser = serial.Serial('COM3', 1000000 )#, parity=serial.PARITY_EVEN, rtscts=1)
+ser = serial.Serial('COM6', 1000000 )#, parity=serial.PARITY_EVEN, rtscts=1)
 ser.set_buffer_size(rx_size = IMG_ROWS * BARE_LINE_LENGTH_NO_NL_CHRS , tx_size = 2560)
 
 ser.reset_input_buffer()

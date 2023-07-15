@@ -8,12 +8,11 @@ def makeGrayImg(data, height, width):
 	flatNumpyArray = numpy.array(data)
 
 	grayImage = flatNumpyArray.reshape(height, width)
-	# grayImage = grayImage.transpose()
-	# grayImage = numpy.flip(grayImage,1)
+	grayImage = grayImage.transpose()
+	grayImage = numpy.flip(grayImage,1)
 
 	grayResized = resizeImage(grayImage, 3)
 
-	currentState = detectChange(grayImage)
 
 	changedBlocks = 0
 
@@ -21,5 +20,3 @@ def makeGrayImg(data, height, width):
 	# cv2.imwrite(name, grayResized)
 
 	displayImg(grayResized)
-
-	return currentState
