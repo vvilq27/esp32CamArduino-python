@@ -2,10 +2,12 @@
 #include <SPI.h>
 //#include <WiFi.h>
 #include "driver/adc.h"
+#include "conversion/private_include/jpge.h"
 
 #define DATA_BYTES 30
 #define ROW_LENGTH 200
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
+#define IMAGE_QUALITY 30
 
 //#include "ESP32Camera.h"
 #include "camera_pins.h"
@@ -60,7 +62,7 @@ void setup() {
   config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
 
   config.frame_size = FRAMESIZE_QQVGA;
-  config.jpeg_quality = 30;
+  config.jpeg_quality = IMAGE_QUALITY;
   config.fb_count = 1;
 
   // camera init
@@ -107,13 +109,32 @@ void loop() {
 
   rowId = 0;
   
-  sendImg(imgSize);
+//  sendImg(imgSize);
 
-  resendDataUntilImageValid();
+//  resendDataUntilImageValid();
   
   imgIdx++;
   Serial.print("Image in: ");
   Serial.println(millis() - start);
+  
+  size_t _jpg_buf_len;
+  uint8_t * _jpg_buf;
+  
+  bool conversionSuccess = frame2jpg(fb, IMAGE_QUALITY, &_jpg_buf, &_jpg_buf_len);
+
+  if(conversionSuccess){
+    int i = 0;
+    while(i < _jpg_buf_len){
+        char pixel = *_jpg_buf++;
+        Serial.write(pixel);
+        i++;
+      }
+    
+  } else {
+    Serial.println("conv failed");
+  }
+
+  Serial.println("img sent");
 
   esp_camera_fb_return(fb);
 }// end main loop
