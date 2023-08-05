@@ -13,7 +13,7 @@ def makeGrayImg(data, height, width):
 
 	grayResized = resizeImage(grayImage, 3)
 
-	currentState = detectChange(grayImage)
+	# detectChange(grayImage)
 
 	changedBlocks = 0
 
@@ -22,4 +22,4 @@ def makeGrayImg(data, height, width):
 
 	displayImg(grayResized)
 
-	return currentState
+	# return currentState
