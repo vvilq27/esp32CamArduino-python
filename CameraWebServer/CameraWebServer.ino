@@ -1,7 +1,8 @@
 #include "esp_camera.h"
 #include <SPI.h>
-//#include <WiFi.h>
-#include "driver/adc.h"
+#include <WiFi.h>
+//#include "driver/adc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #define DATA_BYTES 30
 #define ROW_LENGTH 200
@@ -9,6 +10,15 @@
 
 //#include "ESP32Camera.h"
 #include "camera_pins.h"
+
+const char* ssid = "ESP";
+const char* password = "1234";
+
+String serverName = "192.168.4.1";   // REPLACE WITH YOUR Raspberry Pi IP ADDRESS
+String serverPath = "/upload";     // The default serverPath should be upload.php
+const int serverPort = 80;
+
+WiFiClient client;
 
 /*    pinout for SPI nrf24 connection
  *     io2 - CSN
@@ -31,6 +41,7 @@ uint8_t brightness;
 //ESP32Camera camera;
 
 void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 //  disableWiFi();
   Serial.setTimeout(10);
   Serial.begin(1000000);
@@ -57,7 +68,7 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_GRAYSCALE; //PIXFORMAT_JPEG
+  config.pixel_format = PIXFORMAT_JPEG; //PIXFORMAT_JPEG   ,   PIXFORMAT_GRAYSCALE
 
   config.frame_size = FRAMESIZE_QQVGA;
   config.jpeg_quality = 30;
@@ -91,32 +102,73 @@ void setup() {
 
   imgIdx =0;
   rowValidFlag = false;
+
+  Serial.println("start WiFi setup");
+  connectWifiServer();
+  Serial.println("WiFi setup complete");
+  Serial.println("");
+
 } 
 
 
 void loop() {
-  long start = millis();
+//  long start = millis();
 
+//  rowId = 0;
+
+  serverPhotoUpload();
+  
+//  sendImg(imgSize);
+
+//  resendDataUntilImageValid();
+  
+//  imgIdx++;
+  delay(1000);
+
+}// end main loop
+
+void serverPhotoUpload(){
   fb = esp_camera_fb_get();
 
-  data = (char *)fb->buf;
-  imgSize = fb->len;
-
-  Serial.print("newimg:");
-  Serial.println(imgSize);
-
-  rowId = 0;
+  Serial.println("Connecting to server: " + serverName);
   
-  sendImg(imgSize);
 
-  resendDataUntilImageValid();
+  if (client.connect(serverName.c_str(), serverPort)) {
+    Serial.println("Connection successful!");    
+    String head = "--espCamServerUpload\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"espPic.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    String tail = "\r\n--espCamServerUpload--\r\n";
+
+    uint32_t imageLen = fb->len;
+    uint32_t extraLen = head.length() + tail.length();
+    uint32_t totalLen = imageLen + extraLen;
   
-  imgIdx++;
-  Serial.print("Image in: ");
-  Serial.println(millis() - start);
-
-  esp_camera_fb_return(fb);
-}// end main loop
+    client.println("POST " + serverPath + " HTTP/1.1");
+    client.println("Host: " + serverName);
+    client.println("Content-Length: " + String(totalLen));
+    client.println("Content-Type: multipart/form-data; boundary=espCamServerUpload");
+    client.println();
+    client.print(head);
+  
+    uint8_t *fbBuf = fb->buf;
+    size_t fbLen = fb->len;
+    for (size_t n=0; n<fbLen; n=n+1024) {
+      if (n+1024 < fbLen) {
+        client.write(fbBuf, 1024);
+        fbBuf += 1024;
+      }
+      else if (fbLen%1024>0) {
+        size_t remainder = fbLen%1024;
+        client.write(fbBuf, remainder);
+      }
+    }   
+    client.print(tail);
+    
+    esp_camera_fb_return(fb);
+    client.stop();
+  } else {
+    Serial.println("Connection to " + serverName +  " failed.");
+  }
+}
 
 void sendImg(uint32_t imgSize){
     while(imgSize){
@@ -279,6 +331,20 @@ void configureCam(String command){
   else{
       Serial.println("Command unknown");
    }
+}
+
+void connectWifiServer(){
+   WiFi.mode(WIFI_STA);
+    Serial.println();
+    Serial.print("Connecting to WIFI: ");
+    Serial.println(ssid);
+    WiFi.begin(ssid);  
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      delay(1100);
+      ESP.restart();
+  }
+  Serial.println("\n connection success");
 }
 
 //void disableWiFi(){
