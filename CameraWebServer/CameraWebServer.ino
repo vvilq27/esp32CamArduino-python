@@ -40,6 +40,13 @@ camera_config_t config;
 uint8_t brightness;
 //ESP32Camera camera;
 
+void blink(int time){
+  digitalWrite(2, HIGH);
+  delay(time);
+  digitalWrite(2, LOW);
+  delay(time);
+}
+
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 //  disableWiFi();
@@ -47,6 +54,8 @@ void setup() {
   Serial.begin(1000000);
   Serial.setDebugOutput(true);
   Serial.println();
+
+  pinMode(2, OUTPUT);
 
   
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -70,7 +79,7 @@ void setup() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG; //PIXFORMAT_JPEG   ,   PIXFORMAT_GRAYSCALE
 
-  config.frame_size = FRAMESIZE_QQVGA;
+  config.frame_size = FRAMESIZE_VGA;
   config.jpeg_quality = 30;
   config.fb_count = 1;
 
@@ -106,10 +115,14 @@ void setup() {
   Serial.println("start WiFi setup");
   connectWifiServer();
   Serial.println("WiFi setup complete");
-  Serial.println("");
 
+  blink(1000);
+  blink(200);
+
+  
 } 
-
+int interval = 1000;
+unsigned long previousMillis;
 
 void loop() {
 //  long start = millis();
@@ -125,13 +138,27 @@ void loop() {
 //  imgIdx++;
   delay(1000);
 
+  unsigned long currentMillis = millis();
+// if WiFi is down, try reconnecting
+if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+  blink(400);
+  blink(400);
+  blink(400);
+  delay(700);
+
+  Serial.println("Reconnecting to WiFi...");
+  WiFi.disconnect();
+  WiFi.reconnect();
+  previousMillis = currentMillis;
+}
+
 }// end main loop
 
 void serverPhotoUpload(){
   fb = esp_camera_fb_get();
 
-  Serial.println("Connecting to server: " + serverName);
-  
+//  Serial.println("Connecting to server: " + serverName);
+  blink(100);
 
   if (client.connect(serverName.c_str(), serverPort)) {
     Serial.println("Connection successful!");    
@@ -165,6 +192,9 @@ void serverPhotoUpload(){
     
     esp_camera_fb_return(fb);
     client.stop();
+    blink(50);
+    blink(50);
+    
   } else {
     Serial.println("Connection to " + serverName +  " failed.");
   }
@@ -339,10 +369,10 @@ void connectWifiServer(){
     Serial.print("Connecting to WIFI: ");
     Serial.println(ssid);
     WiFi.begin(ssid);  
-    if (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED) {
       Serial.print(".");
-      delay(1100);
-      ESP.restart();
+      blink(300);
+      blink(50);
   }
   Serial.println("\n connection success");
 }
